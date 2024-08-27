@@ -6,4 +6,4 @@ workflows:
     readMePath: /pipeline/README.md
     filters:
       tags:
-        - /v\\d+.*/
+        - /v\d+.*/
