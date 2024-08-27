@@ -5,4 +5,5 @@ workflows:
     primaryDescriptorPath: /pipeline/PharmCAT_Pipeline.wdl
     readMePath: /pipeline/README.md
     filters:
-      tags: v*
+      tags:
+        - /v\\d+.*/
