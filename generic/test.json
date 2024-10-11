@@ -1,4 +1,0 @@
-{
-    "pharmcat_workflow.vcf_file": "{path}/{file}.vcf",
-    "pharmcat_workflow.output_directory": "{results_path}"
-}

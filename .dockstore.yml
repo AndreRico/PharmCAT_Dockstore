@@ -10,8 +10,8 @@ workflows:
 
   - subclass: WDL
     name: PharmCAT-VCF_Preprocessor
-    primaryDescriptorPath: /modules/vcf_preprocessor.wdl
-    readMePath: /modules/README.md
+    primaryDescriptorPath: /vcf_preprocessor/vcf_preprocessor.wdl
+    readMePath: /vcf_preprocessor/README.md
     filters:
       tags:
         - /v\d+.*/
