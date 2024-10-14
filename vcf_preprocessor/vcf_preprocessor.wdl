@@ -91,27 +91,70 @@ task vcf_preprocess_unified {
     fi
 
     # Construct the command for the preprocessor
-    cmd="python3 pharmcat_vcf_preprocessor.py -vcf $vcf_list"
+    cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_list"
     
-    # Optional arguments
-    ~{if defined(sample_file) then 'cmd+=" -S " + sample_file'}
-    ~{if defined(sample_ids) then 'cmd+=" -s " + sample_ids'}
-    ~{if defined(output_dir) then 'cmd+=" -o " + output_dir'}
-    ~{if defined(base_filename) then 'cmd+=" -bf " + base_filename'}
-    ~{if keep_intermediate_files then 'cmd+=" -k "'}
-    ~{if single_sample then 'cmd+=" -ss "'}
-    ~{if missing_to_ref then 'cmd+=" -0 "'}
-    ~{if concurrent_mode then 'cmd+=" -c "'}
-    ~{if defined(max_concurrent_processes) then 'cmd+=" -cp " + max_concurrent_processes'}
-    ~{if verbose then 'cmd+=" -v "'}
-    ~{if no_gvcf_check then 'cmd+=" -G "'}
-    ~{if defined(reference_pgx_vcf) then 'cmd+=" -refVcf " + reference_pgx_vcf'}
-    ~{if defined(reference_genome) then 'cmd+=" -refFna " + reference_genome'}
-    ~{if retain_specific_regions then 'cmd+=" -R "'}
-    ~{if defined(reference_regions_to_retain) then 'cmd+=" -refRegion " + reference_regions_to_retain'}
+    # # Argumentos opcionais
+    # ~{if defined(sample_file) then 'cmd=cmd + " -S " + sample_file' else ''}
+    # ~{if defined(sample_ids) then 'cmd=cmd + " -s " + sample_ids' else ''}
+    # ~{if defined(output_dir) then 'cmd=cmd + " -o " + output_dir' else ''}
+    # ~{if defined(base_filename) then 'cmd=cmd + " -bf " + base_filename' else ''}
+    # ~{if keep_intermediate_files then 'cmd=cmd + " -k "' else ''}
+    # ~{if single_sample then 'cmd=cmd + " -ss "' else ''}
+    # ~{if missing_to_ref then 'cmd=cmd + " -0 "' else ''}
+    # ~{if concurrent_mode then 'cmd=cmd + " -c "' else ''}
+    # ~{if defined(max_concurrent_processes) then 'cmd=cmd + " -cp " + max_concurrent_processes' else ''}
+    # ~{if verbose then 'cmd=cmd + " -v "' else ''}
+    # ~{if no_gvcf_check then 'cmd=cmd + " -G "' else ''}
+    # ~{if defined(reference_pgx_vcf) then 'cmd=cmd + " -refVcf " + reference_pgx_vcf' else ''}
+    # ~{if defined(reference_genome) then 'cmd=cmd + " -refFna " + reference_genome' else ''}
+    # ~{if retain_specific_regions then 'cmd=cmd + " -R "' else ''}
+    # ~{if defined(reference_regions_to_retain) then 'cmd=cmd + " -refRegion " + reference_regions_to_retain' else ''}
+    
+    # Verifique cada uma das opções de forma apropriada
+    if [ ! -z "$output_dir" ]; then
+      cmd+=" -o $output_dir"
+    fi
 
-    # Execute the preprocessor command
-    echo $cmd
+    if [ ! -z "$sample_file" ]; then
+      cmd+=" -S $sample_file"
+    fi
+
+    if [ ! -z "$sample_ids" ]; then
+      cmd+=" -s $sample_ids"
+    fi
+
+    if [ "$keep_intermediate_files" == "true" ]; then
+      cmd+=" -k"
+    fi
+
+    if [ "$single_sample" == "true" ]; then
+      cmd+=" -ss"
+    fi
+
+    if [ "$missing_to_ref" == "true" ]; then
+      cmd+=" -0"
+    fi
+
+    if [ "$concurrent_mode" == "true" ]; then
+      cmd+=" -c"
+    fi
+
+    if [ ! -z "$max_concurrent_processes" ]; then
+      cmd+=" -cp $max_concurrent_processes"
+    fi
+
+    if [ "$verbose" == "true" ]; then
+      cmd+=" -v"
+    fi
+
+    if [ "$no_gvcf_check" == "true" ]; then
+      cmd+=" -G"
+    fi
+
+
+    # Run the command
+    echo ls
+    echo "Running command: $cmd"
     eval $cmd
   >>>
 
@@ -121,7 +164,7 @@ task vcf_preprocess_unified {
 
   runtime {
     docker: "pgkb/pharmcat:2.13.0"
-    memory: "16G"
+    memory: "4G"
     cpu: 4
   }
 }

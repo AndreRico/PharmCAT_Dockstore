@@ -1,4 +1,4 @@
 {
-    "pharmcat_workflow.vcf_file": "{path}/{file}.vcf",
-    "pharmcat_workflow.output_directory": "{results_path}"
+    "pharmcat_vcf_preprocess_workflow.input_file": "/Users/andrerico/Works/Projects/PharmCAT/PharmCAT_Dockstore/data/single_sample_vcf_list_single_file.tsv",
+    "pharmcat_vcf_preprocess_workflow.is_tsv": true
 }
