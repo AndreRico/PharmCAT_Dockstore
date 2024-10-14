@@ -83,17 +83,38 @@ task vcf_preprocess_unified {
     # Create the output directory
     mkdir -p vcf_files
 
+    # if [ "~{is_tsv}" == "true" ]; then
+    #   # Download VCF files from URLs listed in the TSV
+    #   while read -r url; do
+    #     wget -P vcf_files $url
+    #   done < ~{input_file}
+    #   vcf_list=$(ls vcf_files/*)
+    # else
+    #   # If single VCF, copy to the local folder
+    #   cp ~{input_file} vcf_files/
+    #   vcf_list="vcf_files/$(basename ~{input_file})"
+    # fi
+
     if [ "~{is_tsv}" == "true" ]; then
-      # Download VCF files from URLs listed in the TSV
+      # Baixar os arquivos VCF listados no arquivo TSV de URLs
+      tsv_path="vcf_files/downloaded_vcfs.tsv"
+      touch $tsv_path
+
       while read -r url; do
+        # Baixar cada arquivo VCF
         wget -P vcf_files $url
+        # Adicionar o caminho local ao novo TSV
+        echo "vcf_files/$(basename $url)" >> $tsv_path
       done < ~{input_file}
-      vcf_list=$(ls vcf_files/*)
+
+      # Passar o novo TSV com os caminhos locais para o preprocessor
+      vcf_list=$tsv_path
     else
-      # If single VCF, copy to the local folder
+      # Se for um único VCF, copiar para o diretório local
       cp ~{input_file} vcf_files/
       vcf_list="vcf_files/$(basename ~{input_file})"
     fi
+
 
     # Construct the command for the preprocessor
     cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_list"
