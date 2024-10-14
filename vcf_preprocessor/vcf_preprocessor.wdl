@@ -84,7 +84,8 @@ task vcf_preprocess_unified {
     set -e -x -o pipefail
 
     # Create the output directory
-    mkdir -p vcf_files # ~{output_dir}
+    # mkdir -p vcf_files ~{output_dir}
+    mkdir -p vcf_files
 
     if [ "~{is_tsv}" == "true" ]; then
       # Download VCF files from URLs listed in the TSV
