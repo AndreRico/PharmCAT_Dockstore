@@ -13,7 +13,7 @@ workflow pharmcat_vcf_preprocess_workflow {
     Boolean single_sample_mode = false  # Whether to generate one VCF per sample
     File? sample_file  # Optional file containing a list of sample IDs
     String? sample_ids  # Optional comma-separated list of sample IDs
-    Array[File]? vcf_files  # Lista de arquivos VCF, caso seja necessário múltiplos VCFs
+    Array[File]? vcf_input_files  # Lista de arquivos VCF, caso seja necessário múltiplos VCFs
     String? base_filename  # Prefix for the output files
     Boolean keep_intermediate_files = false  # Whether to keep intermediate files
     Boolean missing_to_ref = false  # Add missing PGx positions as reference
@@ -31,7 +31,7 @@ workflow pharmcat_vcf_preprocess_workflow {
     input:
       input_file = input_file,
       is_tsv = is_tsv,
-      vcf_files = vcf_files,
+      vcf_input_files = vcf_input_files,
       sample_file = sample_file,
       sample_ids = sample_ids,
       base_filename = base_filename,
@@ -63,7 +63,7 @@ task vcf_preprocess_unified {
   input {
     File input_file  # Arquivo de entrada, VCF ou TSV
     Boolean is_tsv = false  # Se for TSV com URLs
-    Array[File]? vcf_files  # Lista de arquivos VCF a serem processados
+    Array[File]? vcf_input_files  # Lista de arquivos VCF a serem processados
     File? sample_file  # Arquivo opcional com os IDs de samples
     String? sample_ids  # Lista de samples
     String? base_filename  # Prefixo para arquivos de saída
@@ -84,7 +84,7 @@ task vcf_preprocess_unified {
     set -e -x -o pipefail
 
     # Criar o diretório de saída
-    mkdir -p vcf_files
+    mkdir -p vcf_files  # Usando vcf_files apenas como diretório temporário
 
     if [ "~{is_tsv}" == "true" ]; then
       # Criar uma lista de arquivos VCF usando o input TSV
@@ -93,7 +93,7 @@ task vcf_preprocess_unified {
 
       while read -r file; do
         # Adicionar os arquivos VCF da lista
-        echo "~{vcf_files} $(basename $file)" >> $tsv_path
+        echo "~{vcf_input_files} $(basename $file)" >> $tsv_path
       done < ~{input_file}
 
       vcf_list=$tsv_path
@@ -124,7 +124,7 @@ task vcf_preprocess_unified {
   >>>
 
   output {
-    Array[File] output_vcf_files = glob("vcf_files/*.vcf*")
+    Array[File] output_vcf_files = glob("vcf_files/*.vcf*")  # Mantém o uso de vcf_files como diretório temporário
   }
 
   runtime {
