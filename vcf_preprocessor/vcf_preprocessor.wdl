@@ -95,9 +95,13 @@ task vcf_preprocess_unified {
     #   vcf_list="vcf_files/$(basename ~{input_file})"
     # fi
 
+    # Adicionar um ls para verificar o diretório antes de baixar arquivos
+    echo "Conteúdo do diretório antes de baixar arquivos:"
+    ls -l vcf_files
+
     if [ "~{is_tsv}" == "true" ]; then
       # Baixar os arquivos VCF listados no arquivo TSV de URLs
-      tsv_path="vcf_files/downloaded_vcfs.tsv"
+      tsv_path="vcf_files/downloaded_vcfs.txt"
       touch $tsv_path
 
       while read -r url; do
@@ -115,6 +119,13 @@ task vcf_preprocess_unified {
       vcf_list="vcf_files/$(basename ~{input_file})"
     fi
 
+    # Exibir o conteúdo de vcf_files após o download ou cópia dos arquivos
+    echo "Conteúdo do diretório após o download/cópia:"
+    ls -l vcf_files
+
+    # Exibir o conteúdo de vcf_list para ver o que está sendo passado ao preprocessor
+    echo "Conteúdo de vcf_list:"
+    cat $vcf_list
 
     # Construct the command for the preprocessor
     cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_list"
