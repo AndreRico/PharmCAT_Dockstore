@@ -13,7 +13,7 @@ workflow pharmcat_vcf_preprocess_workflow {
     Boolean single_sample_mode = false  # Whether to generate one VCF per sample
     File? sample_file  # Optional file containing a list of sample IDs
     String? sample_ids  # Optional comma-separated list of sample IDs
-    String? output_dir = "."  # Output directory for the processed files
+    # String? output_dir = "."  # Output directory for the processed files
     String? base_filename  # Prefix for the output files
     Boolean keep_intermediate_files = false  # Whether to keep intermediate files
     Boolean missing_to_ref = false  # Add missing PGx positions as reference
@@ -33,7 +33,7 @@ workflow pharmcat_vcf_preprocess_workflow {
       is_tsv = is_tsv,
       sample_file = sample_file,
       sample_ids = sample_ids,
-      output_dir = output_dir,
+      # output_dir = output_dir,
       base_filename = base_filename,
       keep_intermediate_files = keep_intermediate_files,
       single_sample = single_sample_mode,
@@ -54,12 +54,18 @@ workflow pharmcat_vcf_preprocess_workflow {
 }
 
 task vcf_preprocess_unified {
+  meta {
+    author: "ClinPGx"
+    email: "pharmcat@pharmgkb.org"
+    description: "This task runs the PharmCAT VCF Preprocessor script to prepare a VCF file for PharmCAT."
+  }
+  
   input {
     File input_file  # Input file (either VCF or TSV with URLs)
     Boolean is_tsv = false  # Whether the input is a TSV with URLs
     File? sample_file  # Optional file with sample IDs
     String? sample_ids  # Comma-separated list of sample IDs
-    String? output_dir = "."  # Output directory
+    # String? output_dir = "."  # Output directory
     String? base_filename  # Output file prefix
     Boolean keep_intermediate_files = false  # Keep intermediate files
     Boolean single_sample = false  # Generate one VCF per sample
@@ -76,7 +82,9 @@ task vcf_preprocess_unified {
 
   command <<<
     set -e -x -o pipefail
-    mkdir -p vcf_files ~{output_dir}
+
+    # Create the output directory
+    mkdir -p vcf_files # ~{output_dir}
 
     if [ "~{is_tsv}" == "true" ]; then
       # Download VCF files from URLs listed in the TSV
@@ -111,9 +119,9 @@ task vcf_preprocess_unified {
     # ~{if defined(reference_regions_to_retain) then 'cmd=cmd + " -refRegion " + reference_regions_to_retain' else ''}
     
     # Verifique cada uma das opções de forma apropriada
-    if [ ! -z "$output_dir" ]; then
-      cmd+=" -o $output_dir"
-    fi
+    # if [ ! -z "$output_dir" ]; then
+    #   cmd+=" -o $output_dir"
+    # fi
 
     if [ ! -z "$sample_file" ]; then
       cmd+=" -S $sample_file"
@@ -159,7 +167,8 @@ task vcf_preprocess_unified {
   >>>
 
   output {
-    Array[File] output_vcf_files = glob("~{output_dir}/*.vcf*")
+    # Array[File] output_vcf_files = glob("~{output_dir}/*.vcf*")
+    Array[File] output_vcf_files = glob("vcf_files/*.vcf*")
   }
 
   runtime {
