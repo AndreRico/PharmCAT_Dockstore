@@ -24,14 +24,12 @@ workflow pharmcat_vcf_preprocess_workflow {
     File? reference_genome  # Custom reference genome (GRCh38)
     Boolean retain_specific_regions = false  # Retain specific regions
     File? reference_regions_to_retain  # BED file specifying PGx regions to retain
-    Directory? vcf_directory  # Diretório contendo os arquivos VCF listados no TSV
   }
 
   call vcf_preprocess_unified {
     input:
       input_file = input_file,
       is_tsv = is_tsv,
-      vcf_directory = vcf_directory,
       sample_file = sample_file,
       sample_ids = sample_ids,
       base_filename = base_filename,
@@ -63,7 +61,6 @@ task vcf_preprocess_unified {
   input {
     File input_file  # Input file (either VCF or TSV with URLs)
     Boolean is_tsv = false  # Whether the input is a TSV with URLs
-    Directory? vcf_directory  # Diretório contendo os arquivos VCF
     File? sample_file  # Optional file with sample IDs
     String? sample_ids  # Comma-separated list of sample IDs
     String? base_filename  # Output file prefix
@@ -98,69 +95,41 @@ task vcf_preprocess_unified {
     #   vcf_list="vcf_files/$(basename ~{input_file})"
     # fi
 
-    # # Adicionar um ls para verificar o diretório antes de baixar arquivos
-    # echo "Conteúdo do diretório antes de baixar arquivos:"
-    # ls -l vcf_files
+    # Adicionar um ls para verificar o diretório antes de baixar arquivos
+    echo "Conteúdo do diretório antes de baixar arquivos:"
+    ls -l vcf_files
 
-    # if [ "~{is_tsv}" == "true" ]; then
-    #   # Baixar os arquivos VCF listados no arquivo TSV de URLs
-    #   tsv_path="vcf_files/downloaded_vcfs.txt"
-    #   touch $tsv_path
-
-    #   while read -r url; do
-    #     # Baixar cada arquivo VCF
-    #     wget -P vcf_files $url
-    #     # Adicionar o caminho local ao novo TSV
-    #     echo "vcf_files/$(basename $url)" >> $tsv_path
-    #   done < ~{input_file}
-
-    #   # Passar o novo TSV com os caminhos locais para o preprocessor
-    #   vcf_list=$tsv_path
-    # else
-    #   # Se for um único VCF, copiar para o diretório local
-    #   cp ~{input_file} vcf_files/
-    #   vcf_list="vcf_files/$(basename ~{input_file})"
-    # fi
-
-    # # Exibir o conteúdo de vcf_files após o download ou cópia dos arquivos
-    # echo "Conteúdo do diretório após o download/cópia:"
-    # ls -l vcf_files
-
-    # # Exibir o conteúdo de vcf_list para ver o que está sendo passado ao preprocessor
-    # echo "Conteúdo de vcf_list:"
-    # cat $vcf_list
-
-    # # Construct the command for the preprocessor
-    # cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_list"
-    
-    # -- start test ---
-    # Verificar se o input é um TSV
     if [ "~{is_tsv}" == "true" ]; then
-      # Ler o TSV e gerar lista de arquivos VCF a partir do diretório fornecido
-      tsv_path="vcf_files/downloaded_vcfs.tsv"
+      # Baixar os arquivos VCF listados no arquivo TSV de URLs
+      tsv_path="vcf_files/downloaded_vcfs.txt"
       touch $tsv_path
 
-      while read -r file; do
-        # Copiar os arquivos VCF da pasta fornecida
-        cp ~{vcf_directory}/$(basename $file) vcf_files/
-        echo "vcf_files/$(basename $file)" >> $tsv_path
+      while read -r url; do
+        # Baixar cada arquivo VCF
+        wget -P vcf_files $url
+        # Adicionar o caminho local ao novo TSV
+        echo "vcf_files/$(basename $url)" >> $tsv_path
       done < ~{input_file}
 
+      # Passar o novo TSV com os caminhos locais para o preprocessor
       vcf_list=$tsv_path
     else
-      # Se for um único VCF, copiá-lo diretamente
+      # Se for um único VCF, copiar para o diretório local
       cp ~{input_file} vcf_files/
       vcf_list="vcf_files/$(basename ~{input_file})"
     fi
 
-    # Exibir o conteúdo da lista de VCFs
-    echo "Conteúdo do vcf_list:"
+    # Exibir o conteúdo de vcf_files após o download ou cópia dos arquivos
+    echo "Conteúdo do diretório após o download/cópia:"
+    ls -l vcf_files
+
+    # Exibir o conteúdo de vcf_list para ver o que está sendo passado ao preprocessor
+    echo "Conteúdo de vcf_list:"
     cat $vcf_list
 
-    # Montar o comando de execução
+    # Construct the command for the preprocessor
     cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_list"
-    # --- end test ---
-
+    
     # # Argumentos opcionais
     # ~{if defined(sample_file) then 'cmd=cmd + " -S " + sample_file' else ''}
     # ~{if defined(sample_ids) then 'cmd=cmd + " -s " + sample_ids' else ''}
@@ -176,7 +145,6 @@ task vcf_preprocess_unified {
     # ~{if defined(reference_genome) then 'cmd=cmd + " -refFna " + reference_genome' else ''}
     # ~{if retain_specific_regions then 'cmd=cmd + " -R "' else ''}
     # ~{if defined(reference_regions_to_retain) then 'cmd=cmd + " -refRegion " + reference_regions_to_retain' else ''}
-
 
     if [ ! -z "$sample_file" ]; then
       cmd+=" -S $sample_file"
