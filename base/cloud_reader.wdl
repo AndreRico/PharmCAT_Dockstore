@@ -30,6 +30,14 @@ task download_task {
       python3-pip \
       unzip
 
+    # # Baixar e instalar o Google Cloud SDK diretamente via tarball
+    # wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-367.0.0-linux-x86_64.tar.gz
+    # tar -xzf google-cloud-sdk-367.0.0-linux-x86_64.tar.gz
+    # ./google-cloud-sdk/install.sh -q
+
+    # # Adicionar gsutil ao PATH
+    # export PATH=$PATH:/google-cloud-sdk/bin
+
     # Exibir o conteúdo do arquivo para fins de debug
     echo "Conteúdo do arquivo URLs:"
     echo >> file.txt
@@ -40,6 +48,9 @@ task download_task {
 
     touch downloaded_files/file__TESTE__SAIDA.txt
     echo "add one row" >> downloaded_files/file__TESTE__SAIDA.txt
+
+    # testar se o gsutil está instalado
+    gsutil --version >> downloaded_files/file__TESTE__SAIDA.txt
 
 
     # Ler as URLs do arquivo de input e baixar cada uma
