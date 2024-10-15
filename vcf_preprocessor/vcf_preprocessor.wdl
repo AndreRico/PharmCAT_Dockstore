@@ -3,16 +3,22 @@ version 1.0
 workflow PharmCAT_VCF_Preprocessor {
   input {
     File urls  # Input file containing list of URLs (one per line)
+    Int max_concurrent_processes = 1
+    String max_memory = "4G"
   }
 
   call a_download_task {
     input:
-      urls_file = urls  # Pass the file containing the list of URLs to the task
+      urls_file = urls,  # Pass the file containing the list of URLs to the task
+      max_concurrent_processes = max_concurrent_processes,
+      max_memory = max_memory
   }
 
   call b_vcf_preprocessor {
     input:
       compressed_files = a_download_task.compressed_files,
+      max_concurrent_processes = max_concurrent_processes,
+      max_memory = max_memory,
   }
 
   output {
@@ -22,6 +28,8 @@ workflow PharmCAT_VCF_Preprocessor {
 
 task a_download_task {
   input {
+    Int max_concurrent_processes
+    String max_memory
     File urls_file
   }
 
@@ -85,8 +93,8 @@ task a_download_task {
 
   runtime {
     docker: "google/cloud-sdk:slim"  # Ensure the Docker image has both wget and gsutil
-    memory: "4G"
-    cpu: 2
+    memory: max_memory
+    cpu: max_concurrent_processes
   }
 }
 
@@ -105,8 +113,8 @@ task b_vcf_preprocessor {
     Boolean retain_specific_regions = false  # Retain specific regions
     File? reference_regions_to_retain  # BED file specifying PGx regions to retain
 
-    Int max_concurrent_processes = 1 # Maximum number of concurrent processes
-    String max_memory = "4G"
+    Int max_concurrent_processes
+    String max_memory
 
     # -- Fields to check if works on cloud environment --
     # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
