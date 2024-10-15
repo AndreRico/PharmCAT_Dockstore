@@ -1,1 +1,1 @@
-https://storage.googleapis.com/fc-374671c8-54cc-4934-93e3-a5c137ea8266/uploads/PharmCAT/pharmcat.example.vcf
+pharmcat.example.vcf

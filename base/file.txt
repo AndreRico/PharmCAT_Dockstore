@@ -1,0 +1,2 @@
+https://raw.githubusercontent.com/AndreRico/PharmCAT_Dockstore/refs/heads/main/sample.vcf
+gs://fc-374671c8-54cc-4934-93e3-a5c137ea8266/uploads/PharmCAT/NA18526.preprocessed.vcf

@@ -14,3 +14,10 @@ workflows:
     # filters:
     #   tags:
     #     - /v\d+.*/
+  - subclass: WDL
+    name: Cloud_Reader
+    primaryDescriptorPath: /base/cloud_reader.wdl
+    readMePath: /base/README.md
+    # filters:
+    #   tags:
+    #     - /v\d+.*/
