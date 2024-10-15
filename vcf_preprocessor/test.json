@@ -1,4 +1,3 @@
 {
-    "pharmcat_vcf_preprocess_workflow.input_file": "/Users/andrerico/Works/Projects/PharmCAT/PharmCAT_Dockstore/data/list_samples.txt",
-    "pharmcat_vcf_preprocess_workflow.is_tsv": true
+    "download_workflow.urls": "/Users/andrerico/Works/Projects/PharmCAT/PharmCAT_Dockstore/vcf_preprocessor/file.txt"
 }

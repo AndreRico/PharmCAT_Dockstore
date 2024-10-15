@@ -17,7 +17,8 @@ workflow download_workflow {
     File? reference_genome  # Custom reference genome (GRCh38)
     Boolean retain_specific_regions = false  # Retain specific regions
     File? reference_regions_to_retain  # BED file specifying PGx regions to retain
-    # -- Fields to check if works on cloud environment --
+
+    # Stage 2: Preprocess the VCF files (continued)
     # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
     # String? output_dir = "."  # Output directory for the processed files
     # String? base_filename  # Prefix for the output files
@@ -28,15 +29,15 @@ workflow download_workflow {
 
   }
 
-  call a_download_task {
+  call download_task {
     input:
       urls_file = urls  # Pass the file containing the list of URLs to the task
   }
 
-  call b_vcf_preprocessor {
+  call vcf_preprocessor {
     input:
       # Data from stage 1 is passed to stage 2
-      compressed_files = a_download_task.compressed_files,
+      compressed_files = download_task.compressed_files,
       
       # Stage 2: Preprocess the VCF files
       sample_file = sample_file,
@@ -53,11 +54,11 @@ workflow download_workflow {
   }
 
   output {
-    Array[File] pre_processor = b_vcf_preprocessor.pre_processor
+    Array[File] pre_processor = vcf_preprocessor.pre_processor
   }
 }
 
-task a_download_task {
+task download_task {
   input {
     File urls_file  # The input file containing list of URLs
   }
@@ -127,21 +128,21 @@ task a_download_task {
   }
 }
 
-task b_vcf_preprocessor {
+task vcf_preprocessor {
   input {
-    File compressed_files
-    File? sample_file
-    String? sample_ids = ""
-    Boolean single_sample = false
-    Boolean missing_to_ref = false
-    Boolean concurrent_mode = false
-    Boolean no_gvcf_check = false
-    File? reference_pgx_vcf
-    File? reference_genome
-    Boolean retain_specific_regions = false
-    File? reference_regions_to_retain
-    Int max_concurrent_processes = 1
-    String max_memory = "4G"
+    File compressed_files  # The input compressed file
+
+    File? sample_file  # Optional file containing a list of sample IDs
+    String? sample_ids  # Optional comma-separated list of sample IDs
+    Boolean single_sample = false  # Whether to generate one VCF per sample
+    Boolean missing_to_ref = false  # Whether to add missing PGx positions as reference (use with caution)
+    Boolean concurrent_mode = false  # Enable concurrent mode
+    Int? max_concurrent_processes  # Maximum number of concurrent processes
+    Boolean no_gvcf_check = false  # Bypass the check for gVCF format
+    File? reference_pgx_vcf  # Custom PGx VCF for reference positions
+    File? reference_genome  # Custom reference genome (GRCh38)
+    Boolean retain_specific_regions = false  # Retain specific regions
+    File? reference_regions_to_retain  # BED file specifying PGx regions to retain
   }
 
   command <<<
@@ -163,6 +164,10 @@ task b_vcf_preprocessor {
       cmd+=" -s $sample_ids"
     fi
 
+    # if [ "$keep_intermediate_files" == "true" ]; then
+    #   cmd+=" -k"
+    # fi
+
     if [ "$single_sample" == "true" ]; then
       cmd+=" -ss"
     fi
@@ -183,6 +188,7 @@ task b_vcf_preprocessor {
       cmd+=" -G"
     fi
 
+
     # Run the command
     echo ls
     echo "Running command: $cmd"
@@ -197,7 +203,7 @@ task b_vcf_preprocessor {
 
   runtime {
     docker: "pgkb/pharmcat:2.13.0"
-    memory: max_memory
-    cpu: max_concurrent_processes
+    memory: "4G"
+    cpu: 4
   }
 }
