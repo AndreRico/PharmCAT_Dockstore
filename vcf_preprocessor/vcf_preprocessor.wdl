@@ -1,31 +1,8 @@
 version 1.0
 
-workflow download_workflow {
+workflow PharmCAT_VCF_Preprocessor {
   input {
-    # Stage 1: Download the files
     File urls  # Input file containing list of URLs (one per line)
-
-    # Stage 2: Preprocess the VCF files
-    File? sample_file  # Optional file containing a list of sample IDs
-    String? sample_ids  # Optional comma-separated list of sample IDs
-    Boolean single_sample = false  # Whether to generate one VCF per sample
-    Boolean missing_to_ref = false  # Whether to add missing PGx positions as reference (use with caution)
-    Boolean concurrent_mode = false  # Enable concurrent mode
-    Int? max_concurrent_processes  # Maximum number of concurrent processes
-    Boolean no_gvcf_check = false  # Bypass the check for gVCF format
-    File? reference_pgx_vcf  # Custom PGx VCF for reference positions
-    File? reference_genome  # Custom reference genome (GRCh38)
-    Boolean retain_specific_regions = false  # Retain specific regions
-    File? reference_regions_to_retain  # BED file specifying PGx regions to retain
-    # -- Fields to check if works on cloud environment --
-    # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
-    # String? output_dir = "."  # Output directory for the processed files
-    # String? base_filename  # Prefix for the output files
-    # Boolean keep_intermediate_files = false  # Whether to keep intermediate files
-    # Boolean verbose = false  # Enable verbose output
-    # File? bcftools_path  # Optional custom path to bcftools
-    # File? bgzip_path  # Optional custom path to bgzip
-
   }
 
   call a_download_task {
@@ -35,21 +12,7 @@ workflow download_workflow {
 
   call b_vcf_preprocessor {
     input:
-      # Data from stage 1 is passed to stage 2
       compressed_files = a_download_task.compressed_files,
-      
-      # Stage 2: Preprocess the VCF files
-      sample_file = sample_file,
-      sample_ids = sample_ids,
-      single_sample = single_sample,
-      missing_to_ref = missing_to_ref,
-      concurrent_mode = concurrent_mode,
-      max_concurrent_processes = max_concurrent_processes,
-      no_gvcf_check = no_gvcf_check,
-      reference_pgx_vcf = reference_pgx_vcf,
-      reference_genome = reference_genome,
-      retain_specific_regions = retain_specific_regions,
-      reference_regions_to_retain = reference_regions_to_retain
   }
 
   output {
@@ -59,7 +22,7 @@ workflow download_workflow {
 
 task a_download_task {
   input {
-    File urls_file  # The input file containing list of URLs
+    File urls_file
   }
 
   command <<<
@@ -130,18 +93,29 @@ task a_download_task {
 task b_vcf_preprocessor {
   input {
     File compressed_files
-    File? sample_file
-    String? sample_ids = ""
-    Boolean single_sample = false
-    Boolean missing_to_ref = false
-    Boolean concurrent_mode = false
-    Boolean no_gvcf_check = false
-    File? reference_pgx_vcf
-    File? reference_genome
-    Boolean retain_specific_regions = false
-    File? reference_regions_to_retain
-    Int max_concurrent_processes = 1
+
+    File? sample_file  # Optional file containing a list of sample IDs
+    String? sample_ids  # Optional comma-separated list of sample IDs
+    Boolean single_sample = false  # Whether to generate one VCF per sample
+    Boolean missing_to_ref = false  # Whether to add missing PGx positions as reference (use with caution)
+    Boolean concurrent_mode = false  # Enable concurrent mode
+    Boolean no_gvcf_check = false  # Bypass the check for gVCF format
+    File? reference_pgx_vcf  # Custom PGx VCF for reference positions
+    File? reference_genome  # Custom reference genome (GRCh38)
+    Boolean retain_specific_regions = false  # Retain specific regions
+    File? reference_regions_to_retain  # BED file specifying PGx regions to retain
+
+    Int max_concurrent_processes = 1 # Maximum number of concurrent processes
     String max_memory = "4G"
+
+    # -- Fields to check if works on cloud environment --
+    # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
+    # String? output_dir = "."  # Output directory for the processed files
+    # String? base_filename  # Prefix for the output files
+    # Boolean keep_intermediate_files = false  # Whether to keep intermediate files
+    # Boolean verbose = false  # Enable verbose output
+    # File? bcftools_path  # Optional custom path to bcftools
+    # File? bgzip_path  # Optional custom path to bgzip
   }
 
   command <<<
@@ -184,10 +158,7 @@ task b_vcf_preprocessor {
     fi
 
     # Run the command
-    echo ls
-    echo "Running command: $cmd"
     eval $cmd
-
   >>>
 
   output {
