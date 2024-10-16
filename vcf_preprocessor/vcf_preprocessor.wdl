@@ -82,7 +82,7 @@ task a_cloud_reader_task {
         # Ensure we're working with a gs:// URL
         folder_path=$(dirname ~{simple_file})
         
-        echo("$folder_path") # DEBUG
+        echo "$folder_path"
 
         # Convert the local file path to a Cloud Storage gs:// URL
         if [[ $folder_path == gs://* ]]; then
@@ -178,6 +178,8 @@ task b_vcf_preprocessor {
     String docker_version
     Int max_concurrent_processes
     String max_memory
+
+    Boolean run_as_block = false  # set if run as VCFs_list.txt or VCF by VCF
 
     # -- Fields to check if works on cloud environment --
     # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
