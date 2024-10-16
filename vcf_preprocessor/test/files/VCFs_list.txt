@@ -1,3 +1,0 @@
-files/VCFs_inputs/sample.vcf
-files/VCFs_inputs/sample_2.vcf
-files/VCFs_inputs/sample_3.vcf
