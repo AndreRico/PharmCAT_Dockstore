@@ -4,7 +4,7 @@ workflow PharmCAT_VCF_Preprocessor {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Optional array of files
-    String docker_version = "2.13.0"
+    String pharmcat_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
   }
@@ -20,7 +20,7 @@ workflow PharmCAT_VCF_Preprocessor {
   call b_vcf_preprocessor {
     input:
       compressed_files = a_cloud_reader_task.compressed_files,
-      docker_version = docker_version,
+      docker_version = pharmcat_version,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory,
   }

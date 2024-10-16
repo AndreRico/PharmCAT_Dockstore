@@ -1,6 +1,6 @@
 {
     "PharmCAT_VCF_Preprocessor.urls_file": "/Users/andrerico/Works/Projects/PharmCAT/PharmCAT_Dockstore/vcf_preprocessor/file.txt",
-    "PharmCAT_VCF_Preprocessor.docker_version": "2.13.0",
+    "PharmCAT_VCF_Preprocessor.pharmcat_version": "2.13.0",
     "PharmCAT_VCF_Preprocessor.max_concurrent_processes": 2,
     "PharmCAT_VCF_Preprocessor.max_memory": "4G"
 }
