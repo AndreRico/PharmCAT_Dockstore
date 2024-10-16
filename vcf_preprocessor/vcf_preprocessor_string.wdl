@@ -3,7 +3,7 @@ version 1.0
 workflow PharmCAT_VCF_Preprocessor {
   input {
     File? urls_file  # Optional input file containing list of URLs
-    Array[File]? local_files  # Optional array of files
+    Array[String]? urls  # Optional array of URLs
     String docker_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
@@ -12,7 +12,7 @@ workflow PharmCAT_VCF_Preprocessor {
   call a_cloud_reader_task {
     input:
       urls_file = urls_file,
-      local_files = local_files,
+      url_list = urls,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory
   }
@@ -33,7 +33,7 @@ workflow PharmCAT_VCF_Preprocessor {
 task a_cloud_reader_task {
   input {
     File? urls_file  # Optional input file containing list of URLs
-    Array[File]? local_files  # Array of input files
+    Array[String]? url_list  # Optional array of URLs
     Int max_concurrent_processes
     String max_memory
   }
@@ -83,17 +83,24 @@ task a_cloud_reader_task {
       done
     fi
 
-    # Check if local_files is defined and process it
-    if [[ ~{true='true' false='false' defined(local_files)} == "true" ]]; then
-      echo "Processing files from the array" >> $log_file
-      for file in ~{sep=' ' local_files}; do
-        file_name=$(basename "$file")  # Extract just the filename
-        echo "Processing $file_name" >> $log_file
+    # Process urls from array
+    if [[ ~{true='true' false='false' defined(url_list)} == "true" ]]; then
+      echo "Start to Read URLs from Array" >> $log_file
+      for url in ~{sep=' ' url_list}; do
+        file_name=$(basename "$url")
+        # check file
         if [[ -f "files/VCFs_inputs/$file_name" ]]; then
-          echo "-- File $file_name already exists, skipping" >> $log_file
+          echo "-- File $file_name already exists, skipping download" >> $log_file
         else
-          cp "$file" "files/VCFs_inputs/"
-          echo "-- File $file_name copied to files/VCFs_inputs/" >> $log_file
+          if [[ $url == http* ]]; then
+            echo "-- Get $url by wget" >> $log_file
+            wget -P files/VCFs_inputs $url --verbose
+          elif [[ $url == gs://* ]]; then
+            echo "-- Get $url by gsutil" >> $log_file
+            gsutil cp $url files/VCFs_inputs/
+          else
+            echo "-- URL formant not support: $url" >> $log_file
+          fi
         fi
       done
     fi
@@ -111,7 +118,7 @@ task a_cloud_reader_task {
       echo "No files to compress, task failed." >> $log_file
       exit 1
     fi
-
+    
   >>>
 
   output {
