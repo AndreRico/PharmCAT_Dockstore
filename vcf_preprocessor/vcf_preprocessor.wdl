@@ -79,14 +79,24 @@ task a_cloud_reader_task {
     
       # If the flag is set to copy the entire folder, process all files in the folder
       if [[ ~{copy_entire_folder} == "true" ]]; then
+        # Ensure we're working with a gs:// URL
         folder_path=$(dirname ~{simple_file})
-        echo "Copying all VCF files from folder: $folder_path" >> $log_file
-        gsutil ls "$folder_path/*.vcf.*" >> $log_file
-        gsutil cp "$folder_path/*.vcf.*" files/VCFs_inputs/ >> $log_file
+        
+        echo("$folder_path") # DEBUG
 
-        # Add all copied files to the list
-        ls files/VCFs_inputs/*.vcf.* >> files/VCFs_list.txt
+        # Convert the local file path to a Cloud Storage gs:// URL
+        if [[ $folder_path == gs://* ]]; then
+          echo "Copying all VCF files from folder: $folder_path" >> $log_file
+          gsutil ls "$folder_path/*.vcf.*" >> $log_file
+          gsutil cp "$folder_path/*.vcf.*" files/VCFs_inputs/ >> $log_file
+
+          # Add all copied files to the list
+          ls files/VCFs_inputs/*.vcf.* >> files/VCFs_list.txt
+        else
+          echo "ERROR: The file path is not a valid gs:// URL. Skipping folder copy." >> $log_file
+        fi
       fi
+
     fi
 
     # Process urls from file
