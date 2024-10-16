@@ -3,6 +3,7 @@ version 1.0
 workflow PharmCAT_VCF_Preprocessor {
   input {
     File urls  # Input file containing list of URLs (one per line)
+    String docker_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
   }
@@ -17,6 +18,7 @@ workflow PharmCAT_VCF_Preprocessor {
   call b_vcf_preprocessor {
     input:
       compressed_files = a_download_task.compressed_files,
+      docker_version = docker_version,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory,
   }
@@ -113,6 +115,7 @@ task b_vcf_preprocessor {
     Boolean retain_specific_regions = false  # Retain specific regions
     File? reference_regions_to_retain  # BED file specifying PGx regions to retain
 
+    String docker_version
     Int max_concurrent_processes
     String max_memory
 
@@ -175,7 +178,7 @@ task b_vcf_preprocessor {
   }
 
   runtime {
-    docker: "pgkb/pharmcat:2.13.0"
+    docker: "pgkb/pharmcat:${docker_version}"  # Use the user-specified or default Docker version
     memory: max_memory
     cpu: max_concurrent_processes
   }
