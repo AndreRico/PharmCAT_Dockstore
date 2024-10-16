@@ -4,6 +4,8 @@ workflow PharmCAT_VCF_Preprocessor {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Optional array of files
+    File simple_file  # Single file input
+    Boolean copy_entire_folder = false  # Flag to indicate if all files in the folder should be copied
     String pharmcat_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
@@ -13,6 +15,8 @@ workflow PharmCAT_VCF_Preprocessor {
     input:
       urls_file = urls_file,
       local_files = local_files,
+      simple_file = simple_file,
+      copy_entire_folder = copy_entire_folder,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory
   }
@@ -34,6 +38,8 @@ task a_cloud_reader_task {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Array of input files
+    File simple_file  # Single file input
+    Boolean copy_entire_folder  # Flag to copy all files from the folder
     Int max_concurrent_processes
     String max_memory
   }
@@ -64,6 +70,24 @@ task a_cloud_reader_task {
 
     # Check gsutil
     gsutil --version >> $log_file
+
+    # Process the single file input
+    if [[ ~{true='true' false='false' defined(simple_file)} == "true" ]]; then
+      echo "Processing single file: ~{simple_file}" >> $log_file
+      gsutil cp ~{simple_file} files/VCFs_inputs/
+      echo "~{simple_file}" >> files/VCFs_list.txt
+    
+      # If the flag is set to copy the entire folder, process all files in the folder
+      if [[ ~{copy_entire_folder} == "true" ]]; then
+        folder_path=$(dirname ~{simple_file})
+        echo "Copying all VCF files from folder: $folder_path" >> $log_file
+        gsutil ls "$folder_path/*.vcf.*" >> $log_file
+        gsutil cp "$folder_path/*.vcf.*" files/VCFs_inputs/ >> $log_file
+
+        # Add all copied files to the list
+        ls files/VCFs_inputs/*.vcf.* >> files/VCFs_list.txt
+      fi
+    fi
 
     # Process urls from file
     if [[ -n "~{urls_file}" ]]; then
@@ -163,7 +187,8 @@ task b_vcf_preprocessor {
 
     # Construct the command for the preprocessor
     cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py"
-    cmd+=" -vcf files/VCFs_list.txt"
+    cmd+=" -vcf files/VCFs_list.txt" # only if the same 
+    # Process file by VCF file instead the txt! (but we need keep the txt if the use flag to process as txt)
     cmd+=" -o files/Results"
 
     if [ ! -z "$sample_file" ]; then

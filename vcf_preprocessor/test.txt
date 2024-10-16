@@ -1,0 +1,15 @@
+gs://fc-374671c8-54cc-4934-93e3-a5c137ea8266/uploads/PharmCAT/
+
+PharmCAT_tutorial_get-rm_wgs_30x_grch38_chr2.vcf.bgz"
+
+
+input: gs://fc-374671c8-54cc-4934-93e3-a5c137ea8266/uploads/PharmCAT/PharmCAT_tutorial_get-rm_wgs_30x_grch38_chr2.vcf.bgz
+
+
+Task:
+1. Get the gs diretory: gs://fc-374671c8-54cc-4934-93e3-a5c137ea8266/uploads/PharmCAT/
+2. Copy all files in the gs diretory to the local folder (container)
+
+
+Target will process all VCF files from gs://fc-374671c8-54cc-4934-93e3-a5c137ea8266/uploads/PharmCAT/
+Import call the PharmCAT_pipeline to each file 
