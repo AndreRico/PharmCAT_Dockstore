@@ -2,24 +2,22 @@ version 1.0
 
 workflow PharmCAT_VCF_Preprocessor {
   input {
-    File? urls_file  # Optional input file containing list of URLs
-    Array[String]? urls  # Optional array of URLs
+    File urls  # Input file containing list of URLs (one per line)
     String docker_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
   }
 
-  call a_cloud_reader_task {
+  call a_download_task {
     input:
-      urls_file = urls_file,
-      url_list = urls,
+      urls_file = urls,  # Pass the file containing the list of URLs to the task
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory
   }
 
   call b_vcf_preprocessor {
     input:
-      compressed_files = a_cloud_reader_task.compressed_files,
+      compressed_files = a_download_task.compressed_files,
       docker_version = docker_version,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory,
@@ -30,12 +28,11 @@ workflow PharmCAT_VCF_Preprocessor {
   }
 }
 
-task a_cloud_reader_task {
+task a_download_task {
   input {
-    File? urls_file  # Optional input file containing list of URLs
-    Array[String]? url_list  # Optional array of URLs
     Int max_concurrent_processes
     String max_memory
+    File urls_file
   }
 
   command <<<
@@ -49,76 +46,46 @@ task a_cloud_reader_task {
       python3-pip \
       unzip
 
-    # Create folders
+    # Set Folders
     mkdir -p files
     mkdir -p files/VCFs_inputs
 
-    # Create log file
-    log_file="files/log.txt"
+    # Create a log file
+    log_file="files/log_cloud_reader.txt"
     touch $log_file
     echo "Start Cloud Reader Task" >> $log_file
 
-    # Create the txt file
+    # Create a list path file
     VCFs_list="files/VCFs_list.txt"
     touch $VCFs_list
 
-    # Check gsutil
+    # Check if the gsutil is installed
     gsutil --version >> $log_file
 
-    # Process urls from file
-    if [[ -n "~{urls_file}" ]]; then
-      echo "Start to Read URLs from File" >> $log_file
-      # cat ~{urls_file} >> $log_file
-      # bug - while no works in this logic
-      for url in $(cat ~{urls_file}); do
-        if [[ $url == http* ]]; then
-          echo "-- Get $url by wget" >> $log_file
-          wget -P files/VCFs_inputs $url --verbose
-        elif [[ $url == gs://* ]]; then
-          echo "-- Get $url by gsutil" >> $log_file
-          gsutil cp $url files/VCFs_inputs/
-        else
-          echo "-- URL formant not support: $url" >> $log_file
-        fi
-      done
-    fi
+    # Add file list in the log
+    echo "Files list:" >> $log_file
+    cat ~{urls_file} >> $log_file
 
-    # Process urls from array
-    if [[ ~{true='true' false='false' defined(url_list)} == "true" ]]; then
-      echo "Start to Read URLs from Array" >> $log_file
-      for url in ~{sep=' ' url_list}; do
-        file_name=$(basename "$url")
-        # check file
-        if [[ -f "files/VCFs_inputs/$file_name" ]]; then
-          echo "-- File $file_name already exists, skipping download" >> $log_file
-        else
-          if [[ $url == http* ]]; then
-            echo "-- Get $url by wget" >> $log_file
-            wget -P files/VCFs_inputs $url --verbose
-          elif [[ $url == gs://* ]]; then
-            echo "-- Get $url by gsutil" >> $log_file
-            gsutil cp $url files/VCFs_inputs/
-          else
-            echo "-- URL formant not support: $url" >> $log_file
-          fi
-        fi
-      done
-    fi
+    # Read the URLs from the input file and download each one
+    while read -r url; do
+      if [[ $url == http* ]]; then
+        echo "Starting $url" >> $log_file
+        wget -P files/VCFs_inputs $url --verbose
 
-    # Create VCFs_list.txt
+      elif [[ $url == gs://* ]]; then
+        echo "Starting $url" >> $log_file
+        gsutil cp $url files/VCFs_inputs/
+
+      else
+        echo "ERROR in $url" >> $log_file
+      fi
+    done < ~{urls_file}
+
+    # list all files in the folder and save in the VCFs_list.txt
     ls files/VCFs_inputs/* > $VCFs_list
 
-    # Prepare the folder structure to process in next task
-    if [[ $(ls files/VCFs_inputs | wc -l) -gt 0 ]]; then
-      echo "Compressing the downloaded files..."  >> $log_file
-      echo "Finish the Cloud Reader Task" >> $log_file
-      echo " " >> $log_file
-      tar -czvf files.tar.gz files
-    else
-      echo "No files to compress, task failed." >> $log_file
-      exit 1
-    fi
-    
+    # Compress the files directory into a tar.gz file
+    tar -czvf files.tar.gz files
   >>>
 
   output {
@@ -127,7 +94,7 @@ task a_cloud_reader_task {
   }
 
   runtime {
-    docker: "google/cloud-sdk:slim"
+    docker: "google/cloud-sdk:slim"  # Ensure the Docker image has both wget and gsutil
     memory: max_memory
     cpu: max_concurrent_processes
   }

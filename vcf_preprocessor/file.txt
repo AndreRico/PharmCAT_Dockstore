@@ -1,3 +1,2 @@
-https://raw.githubusercontent.com/AndreRico/PharmCAT_Dockstore/refs/heads/main/data/sample.vcf
 https://raw.githubusercontent.com/AndreRico/PharmCAT_Dockstore/refs/heads/main/data/sample_2.vcf
 https://raw.githubusercontent.com/AndreRico/PharmCAT_Dockstore/refs/heads/main/data/sample_3.vcf
