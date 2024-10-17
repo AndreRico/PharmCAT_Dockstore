@@ -4,8 +4,7 @@ workflow PharmCAT_VCF_Preprocessor {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Optional array of files
-    File simple_file  # Single file input
-    Boolean copy_entire_folder = false  # Flag to indicate if all files in the folder should be copied
+    String directory_path  # Read all VCF from a diretory
     String pharmcat_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
@@ -15,8 +14,7 @@ workflow PharmCAT_VCF_Preprocessor {
     input:
       urls_file = urls_file,
       local_files = local_files,
-      simple_file = simple_file,
-      copy_entire_folder = copy_entire_folder,
+      directory_path = directory_path,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory
   }
@@ -38,8 +36,7 @@ task a_cloud_reader_task {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Array of input files
-    File simple_file  # Single file input
-    Boolean copy_entire_folder  # Flag to copy all files from the folder
+    String directory_path # Directory name to read all files inside
     Int max_concurrent_processes
     String max_memory
   }
@@ -71,33 +68,31 @@ task a_cloud_reader_task {
     # Check gsutil
     gsutil --version >> $log_file
 
-    # Process the single file input
-    if [[ ~{true='true' false='false' defined(simple_file)} == "true" ]]; then
-      echo "Processing single file: ~{simple_file}" >> $log_file
-      gsutil cp ~{simple_file} files/VCFs_inputs/
-      echo "~{simple_file}" >> files/VCFs_list.txt
-    
-      # If the flag is set to copy the entire folder, process all files in the folder
-      if [[ ~{copy_entire_folder} == "true" ]]; then
-        # Ensure we're working with a gs:// URL
-        folder_path=$(dirname ~{simple_file})
-        
-        echo "$folder_path"
+    # Process the directory input
+    if [[ ~{true='true' false='false' defined(directory_path)} == "true" ]]; then
+      echo "Processing directory: ~{directory_path}" >> $log_file
 
-        # Convert the local file path to a Cloud Storage gs:// URL
-        if [[ $folder_path == gs://* ]]; then
-          echo "Copying all VCF files from folder: $folder_path" >> $log_file
-          gsutil ls "$folder_path/*.vcf.*" >> $log_file
-          gsutil cp "$folder_path/*.vcf.*" files/VCFs_inputs/ >> $log_file
+      # Ensure we're working with a gs:// URL
+      if [[ ~{directory_path} == gs://* ]]; then
+        echo "Copying all VCF files from directory: ~{directory_path}" >> $log_file
 
-          # Add all copied files to the list
-          ls files/VCFs_inputs/*.vcf.* >> files/VCFs_list.txt
-        else
-          echo "ERROR: The file path is not a valid gs:// URL. Skipping folder copy." >> $log_file
-        fi
+        # List all the VCF files in the directory
+        gsutil ls "~{directory_path}/*.vcf.*" >> $log_file
+      
+        # Copy all the VCF files from the directory to the local folder
+        gsutil cp "~{directory_path}/*.vcf.*" files/VCFs_inputs/ >> $log_file
+
+        # Add all copied files to the VCFs list file
+        ls files/VCFs_inputs/*.vcf.* >> files/VCFs_list.txt
+
+        echo "All VCF files from ~{directory_path} have been copied to files/VCFs_inputs/" >> $log_file
+
+      else
+        # TODO: Add support for other cloud directories if needed
+        echo "ERROR: The directory path is not a valid gs:// URL. Skipping file copy." >> $log_file
       fi
-
     fi
+
 
     # Process urls from file
     if [[ -n "~{urls_file}" ]]; then
@@ -180,6 +175,7 @@ task b_vcf_preprocessor {
     String max_memory
 
     Boolean run_as_block = false  # set if run as VCFs_list.txt or VCF by VCF
+    
 
     # -- Fields to check if works on cloud environment --
     # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
@@ -197,38 +193,57 @@ task b_vcf_preprocessor {
     # Extract the compressed file
     tar -xzvf ~{compressed_files}
 
-    # Construct the command for the preprocessor
-    cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py"
-    cmd+=" -vcf files/VCFs_list.txt" # only if the same 
-    # Process file by VCF file instead the txt! (but we need keep the txt if the use flag to process as txt)
-    cmd+=" -o files/Results"
+    # common arguments
+    arg=" -o files/Results"
 
     if [ ! -z "$sample_file" ]; then
-      cmd+=" -S $sample_file"
+      arg+=" -S $sample_file"
     fi
 
     if [ ! -z "$sample_ids" ]; then
-      cmd+=" -s $sample_ids"
+      arg+=" -s $sample_ids"
     fi
 
     if [ "$single_sample" == "true" ]; then
-      cmd+=" -ss"
+      arg+=" -ss"
     fi
 
     if [ "$missing_to_ref" == "true" ]; then
-      cmd+=" -0"
+      arg+=" -0"
     fi
 
     if [ "$concurrent_mode" == "true" ]; then
-      cmd+=" -c"
+      arg+=" -c"
     fi
 
     if [ ! -z "$max_concurrent_processes" ]; then
-      cmd+=" -cp $max_concurrent_processes"
+      arg+=" -cp $max_concurrent_processes"
     fi
 
     if [ "$no_gvcf_check" == "true" ]; then
-      cmd+=" -G"
+      arg+=" -G"
+    fi
+
+
+    # Check the flag to determine if we process as a block (VCFs_list.txt) or per individual file
+
+    # Process only the same sample across all split VCF files.
+    if [ "$run_as_block" == "true" ]; then
+      echo "Running in list file mode (using VCFs_list.txt)" >> files/log.txt
+      cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf files/VCFs_list.txt"
+      cmd+=arg
+      echo "Running: $cmd" >> files/log.txt
+      eval $cmd
+    # Process each file in the VCFs_list.txt individually
+    else
+      echo "Running in VCF file mode" >> files/log.txt
+      while read -r vcf_file; do
+        echo "Processing file: $vcf_file" >> files/log.txt
+        cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_file"
+        cmd+=arg
+        echo "Running: $cmd" >> files/log.txt
+        eval $cmd
+      done < files/VCFs_list.txt
     fi
 
     # Run the command
