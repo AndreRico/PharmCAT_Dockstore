@@ -302,7 +302,7 @@ task c_cloud_writer_task {
     tar -xzvf ~{pre_processor}
 
     # Start log file
-    log_file="files/log.txt"
+    log_file="log.txt"
     touch $log_file
     echo "-----------------------" >> $log_file
     echo "Start Cloud Writer Task" >> $log_file
@@ -319,7 +319,7 @@ task c_cloud_writer_task {
 
     if [[ ~{directory_results} == gs://* ]]; then
       # Copying individual result files
-      gsutil cp files/Results/* "~{directory_results}/" >> $log_file
+      gsutil cp Results/* "~{directory_results}/" >> $log_file
       # Copying the pre_processor tar.gz as well
       gsutil cp ~{pre_processor} ~{directory_results}/ >> $log_file
     else
@@ -331,7 +331,7 @@ task c_cloud_writer_task {
   >>>
 
   output {
-    File log = "files/log.txt"
+    File log = "log.txt"
   }
 
   runtime {
