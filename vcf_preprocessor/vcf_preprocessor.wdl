@@ -265,7 +265,7 @@ task b_vcf_preprocessor {
 
   output {
     # Return the extracted files
-    Array[File] pre_processor = glob("files/VCFs_inputs/*")
+    Array[File] pre_processor = glob("files/*")
   }
 
   runtime {
