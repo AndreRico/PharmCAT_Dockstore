@@ -4,7 +4,7 @@ workflow PharmCAT_VCF_Preprocessor {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Optional array of files
-    String directory_path  # Read all VCF from a diretory
+    String? directory_path  # Read all VCF from a diretory
     String pharmcat_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
@@ -36,7 +36,7 @@ task a_cloud_reader_task {
   input {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Array of input files
-    String directory_path # Directory name to read all files inside
+    String? directory_path # Directory name to read all files inside
     Int max_concurrent_processes
     String max_memory
   }
@@ -71,28 +71,21 @@ task a_cloud_reader_task {
     # Process the directory input
     if [[ ~{true='true' false='false' defined(directory_path)} == "true" ]]; then
       echo "Processing directory: ~{directory_path}" >> $log_file
-
       # Ensure we're working with a gs:// URL
       if [[ ~{directory_path} == gs://* ]]; then
         echo "Copying all VCF files from directory: ~{directory_path}" >> $log_file
-
         # List all the VCF files in the directory
         gsutil ls "~{directory_path}/*.vcf.*" >> $log_file
-      
         # Copy all the VCF files from the directory to the local folder
         gsutil cp "~{directory_path}/*.vcf.*" files/VCFs_inputs/ >> $log_file
-
         # Add all copied files to the VCFs list file
         ls files/VCFs_inputs/*.vcf.* >> files/VCFs_list.txt
-
         echo "All VCF files from ~{directory_path} have been copied to files/VCFs_inputs/" >> $log_file
-
+      # TODO: Add support for other cloud directories as we extend
       else
-        # TODO: Add support for other cloud directories if needed
         echo "ERROR: The directory path is not a valid gs:// URL. Skipping file copy." >> $log_file
       fi
     fi
-
 
     # Process urls from file
     if [[ -n "~{urls_file}" ]]; then
@@ -143,6 +136,8 @@ task a_cloud_reader_task {
 
   >>>
 
+  # TODO: Keep the list in apha order
+
   output {
     # Return the compressed file instead of an array of individual files
     File compressed_files = "files.tar.gz"
@@ -174,9 +169,8 @@ task b_vcf_preprocessor {
     Int max_concurrent_processes
     String max_memory
 
-    Boolean run_as_block = false  # set if run as VCFs_list.txt or VCF by VCF
+    Boolean? single_vcf_mode = true  # Defaul will run VCF files individually
     
-
     # -- Fields to check if works on cloud environment --
     # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
     # String? output_dir = "."  # Output directory for the processed files
@@ -187,67 +181,86 @@ task b_vcf_preprocessor {
     # File? bgzip_path  # Optional custom path to bgzip
   }
 
+
   command <<<
     set -e -x -o pipefail
   
-    # Extract the compressed file
+    # Extract the compressed file from a_cloud_reader_task
     tar -xzvf ~{compressed_files}
 
-    # common arguments
-    arg=" -o files/Results"
+    # Start log file
+    log_file="files/log.txt"
+    echo "---------------------------" >> $log_file
+    echo "Start VCF Preprocessor Task" >> $log_file
+    echo "---------------------------" >> $log_file
 
+    # Common arguments
+    arg=" -o files/Results"
     if [ ! -z "$sample_file" ]; then
       arg+=" -S $sample_file"
     fi
-
     if [ ! -z "$sample_ids" ]; then
       arg+=" -s $sample_ids"
     fi
-
     if [ "$single_sample" == "true" ]; then
       arg+=" -ss"
     fi
-
     if [ "$missing_to_ref" == "true" ]; then
       arg+=" -0"
     fi
-
     if [ "$concurrent_mode" == "true" ]; then
       arg+=" -c"
     fi
-
     if [ ! -z "$max_concurrent_processes" ]; then
       arg+=" -cp $max_concurrent_processes"
     fi
-
     if [ "$no_gvcf_check" == "true" ]; then
       arg+=" -G"
     fi
+    echo "Set Common Arguments: $arg" >> $log_file
 
+    # Mandatory argument: -vcf.
+    # -------------------------
+    # Path to a single VCF file or a file containing the list of VCF file paths (one per line),
+    #   sorted by chromosome position. All VCF files must have the same set of samples. Use this
+    #   when data for a sample has been split among multiple files (e.g. VCF files from large
+    #   cohorts, such as UK Biobank). Input VCF files must at least comply with 
+    #   Variant Call Format (VCF) Version >= 4.2.
 
-    # Check the flag to determine if we process as a block (VCFs_list.txt) or per individual file
+    # The $single_vcf_mode will control the model to run
 
-    # Process only the same sample across all split VCF files.
-    if [ "$run_as_block" == "true" ]; then
-      echo "Running in list file mode (using VCFs_list.txt)" >> files/log.txt
+    # Process same set of samples across all split VCF files.
+    if [ "$single_vcf_mode" == "false" ]; then
+      echo "Running VCF-Preprocessor in List File Mode" >> $log_file
       cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf files/VCFs_list.txt"
-      cmd+=arg
-      echo "Running: $cmd" >> files/log.txt
+      cmd="$cmd $arg"  # Concatenating the arguments
+      echo "Running: $cmd" >> $log_file
       eval $cmd
     # Process each file in the VCFs_list.txt individually
     else
-      echo "Running in VCF file mode" >> files/log.txt
+      echo "Running VCF-Preprocessor in VCF File Mode" >> $log_file
       while read -r vcf_file; do
-        echo "Processing file: $vcf_file" >> files/log.txt
+        echo "Processing file: $vcf_file" >> $log_file
         cmd="python3 /pharmcat/pharmcat_vcf_preprocessor.py -vcf $vcf_file"
-        cmd+=arg
-        echo "Running: $cmd" >> files/log.txt
+        cmd="$cmd $arg"  # Concatenating the arguments
+        echo "Running: $cmd" >> $log_file
         eval $cmd
       done < files/VCFs_list.txt
     fi
 
     # Run the command
     eval $cmd
+    echo "Pharmcat_vcf_preprocessor.py finished" >> $log_file
+
+    # Check Results Files
+    if [ -n "$(ls files/Results/ 2>/dev/null)" ]; then
+      ls files/Results/* >> $log_file
+    else
+      echo "No results found in files/Results/" >> $log_file
+    fi
+
+    # TODO: Package and send to next modules
+
   >>>
 
   output {
