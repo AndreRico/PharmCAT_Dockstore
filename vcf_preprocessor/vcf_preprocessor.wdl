@@ -28,7 +28,8 @@ workflow PharmCAT_VCF_Preprocessor {
   }
 
   output {
-    Array[File] pre_processor = b_vcf_preprocessor.pre_processor
+    # Array[File] pre_processor = b_vcf_preprocessor.pre_processor
+    File pre_processor = b_vcf_preprocessor.pre_processor
   }
 }
 
@@ -120,6 +121,7 @@ task a_cloud_reader_task {
       done
     fi
 
+    # TODO: Keep the list in apha order
     # Create VCFs_list.txt
     ls files/VCFs_inputs/* > $VCFs_list
 
@@ -136,8 +138,6 @@ task a_cloud_reader_task {
 
   >>>
 
-  # TODO: Keep the list in apha order
-
   output {
     # Return the compressed file instead of an array of individual files
     File compressed_files = "files.tar.gz"
@@ -152,8 +152,19 @@ task a_cloud_reader_task {
 
 task b_vcf_preprocessor {
   input {
+    # Data from a_cloud_reader_task
     File compressed_files
 
+    # Environment Settings
+    String docker_version
+    Int max_concurrent_processes
+    String max_memory
+
+    # Adapted for this Task
+    Boolean? single_vcf_mode = true  # Defaul will run VCF files individually
+    String? directory_results  # Directory to save the results
+
+    # Inputs from Pharmcat_vcf_preprocesssor.py
     File? sample_file  # Optional file containing a list of sample IDs
     String? sample_ids  # Optional comma-separated list of sample IDs
     Boolean single_sample = false  # Whether to generate one VCF per sample
@@ -164,14 +175,8 @@ task b_vcf_preprocessor {
     File? reference_genome  # Custom reference genome (GRCh38)
     Boolean retain_specific_regions = false  # Retain specific regions
     File? reference_regions_to_retain  # BED file specifying PGx regions to retain
-
-    String docker_version
-    Int max_concurrent_processes
-    String max_memory
-
-    Boolean? single_vcf_mode = true  # Defaul will run VCF files individually
     
-    # -- Fields to check if works on cloud environment --
+    # Inputs from Pharmcat_vcf_preprocesssor.py / No works on Could Environment
     # File vcf_file  # Input VCF file (can be a single VCF or a list file with multiple VCFs)
     # String? output_dir = "."  # Output directory for the processed files
     # String? base_filename  # Prefix for the output files
@@ -255,18 +260,26 @@ task b_vcf_preprocessor {
     # Check Results Files
     if [ -n "$(ls files/Results/ 2>/dev/null)" ]; then
       ls files/Results/* >> $log_file
+
+      # Save Results in directory defined by the user
+      if [[ ~{true='true' false='false' defined(directory_results)} == "true" ]]; then
+        echo "Copying results to ~{directory_results}" >> $log_file
+        gsutil cp files/Results/* "~{directory_results}/"
+      fi
+
     else
       echo "No results found in files/Results/" >> $log_file
     fi
 
-    # TODO: Package and send to next modules
-
+    # Package the entire 'files' directory and create a tar.gz file
+    echo "Packaging the 'files' directory..." >> $log_file
+    tar -czvf pre_processor.tar.gz -C files .  # Use -C to change directory and include all contents of 'files' folder
   >>>
 
-  output {
-    # Return the extracted files
-    Array[File] pre_processor = glob("files/*")
-  }
+output {
+    # Return the packaged tar.gz file containing all the processed files
+    File pre_processor = "pre_processor.tar.gz"
+}
 
   runtime {
     docker: "pgkb/pharmcat:${docker_version}"  # Use the user-specified or default Docker version
