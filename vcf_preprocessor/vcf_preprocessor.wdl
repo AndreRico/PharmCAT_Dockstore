@@ -30,7 +30,7 @@ workflow PharmCAT_VCF_Preprocessor {
 
   call c_cloud_writer_task {
     input:
-      pre_processor = b_vcf_preprocessor.pre_processor
+      pre_processor = b_vcf_preprocessor.pre_processor,
       directory_results = directory_results
   }
 
