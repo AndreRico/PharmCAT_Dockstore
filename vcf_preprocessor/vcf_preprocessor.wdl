@@ -5,6 +5,7 @@ workflow PharmCAT_VCF_Preprocessor {
     File? urls_file  # Optional input file containing list of URLs
     Array[File]? local_files  # Optional array of files
     String? directory_path  # Read all VCF from a diretory
+    String? directory_results  # Write the Results in Cloud Diretory
     String pharmcat_version = "2.13.0"
     Int max_concurrent_processes = 1
     String max_memory = "4G"
@@ -27,9 +28,16 @@ workflow PharmCAT_VCF_Preprocessor {
       max_memory = max_memory,
   }
 
+  call c_cloud_writer_task {
+    input:
+      pre_processor = b_vcf_preprocessor.pre_processor
+      directory_results = directory_results
+  }
+
   output {
     # Array[File] pre_processor = b_vcf_preprocessor.pre_processor
     File pre_processor = b_vcf_preprocessor.pre_processor
+    File log = c_cloud_writer_task.log
   }
 }
 
@@ -162,7 +170,7 @@ task b_vcf_preprocessor {
 
     # Adapted for this Task
     Boolean? single_vcf_mode = true  # Defaul will run VCF files individually
-    String? directory_results  # Directory to save the results
+    # String? directory_results  # Directory to save the results
 
     # Inputs from Pharmcat_vcf_preprocesssor.py
     File? sample_file  # Optional file containing a list of sample IDs
@@ -260,13 +268,6 @@ task b_vcf_preprocessor {
     # Check Results Files
     if [ -n "$(ls files/Results/ 2>/dev/null)" ]; then
       ls files/Results/* >> $log_file
-
-      # Save Results in directory defined by the user
-      if [[ ~{true='true' false='false' defined(directory_results)} == "true" ]]; then
-        echo "Copying results to ~{directory_results}" >> $log_file
-        gsutil cp files/Results/* "~{directory_results}/"
-      fi
-
     else
       echo "No results found in files/Results/" >> $log_file
     fi
@@ -285,5 +286,57 @@ output {
     docker: "pgkb/pharmcat:${docker_version}"  # Use the user-specified or default Docker version
     memory: max_memory
     cpu: max_concurrent_processes
+  }
+}
+
+task c_cloud_writer_task {
+  input {
+    File pre_processor
+    String directory_results
+  }
+
+  command <<<
+    set -e -x -o pipefail
+
+    # Extract the compressed file from a_cloud_reader_task
+    tar -xzvf ~{pre_processor}
+
+    # Start log file
+    log_file="files/log.txt"
+    touch $log_file
+    echo "-----------------------" >> $log_file
+    echo "Start Cloud Writer Task" >> $log_file
+    echo "-----------------------" >> $log_file
+
+    # Ensure gsutil is available in this environment
+    if ! command -v gsutil &> /dev/null; then
+      echo "ERROR: gsutil not found. Please ensure gsutil is available." >> $log_file
+      exit 1
+    fi
+
+    # Save Results in directory defined by the user
+    echo "Copying results to ~{directory_results}" >> $log_file
+
+    if [[ ~{directory_results} == gs://* ]]; then
+      # Copying individual result files
+      gsutil cp files/Results/* "~{directory_results}/" >> $log_file
+      # Copying the pre_processor tar.gz as well
+      gsutil cp ~{pre_processor} ~{directory_results}/ >> $log_file
+    else
+      echo "ERROR: Unsupported storage destination. Only gs:// is supported in this task." >> $log_file
+      exit 1
+    fi
+
+    echo "Cloud Writer Task completed successfully." >> $log_file
+  >>>
+
+  output {
+    File log = "files/log.txt"
+  }
+
+  runtime {
+    docker: "google/cloud-sdk:slim"  # Use a Docker image that includes gsutil
+    memory: "4G"
+    cpu: 1
   }
 }
