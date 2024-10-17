@@ -292,7 +292,7 @@ output {
 task c_cloud_writer_task {
   input {
     File pre_processor
-    String directory_results
+    String? directory_results
   }
 
   command <<<
