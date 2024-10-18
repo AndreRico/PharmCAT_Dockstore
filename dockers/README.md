@@ -7,3 +7,4 @@ $ docker build -t cloud-tools .
 Command to run the containner:
 docker run -it cloud-tools
 
+.
