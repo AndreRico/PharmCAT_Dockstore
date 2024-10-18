@@ -1,0 +1,5 @@
+{
+    "pharmcat_pipeline.files_list": "/Users/andrerico/Works/Projects/PharmCAT/PharmCAT_Dockstore/pipeline/github.txt",
+    "pharmcat_pipeline.max_concurrent_processes": 1,
+    "pharmcat_pipeline.max_memory": "4G"
+}

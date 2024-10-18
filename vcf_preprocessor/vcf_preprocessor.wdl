@@ -170,7 +170,6 @@ task b_vcf_preprocessor {
 
     # Adapted for this Task
     Boolean? single_vcf_mode = true  # Defaul will run VCF files individually
-    # String? directory_results  # Directory to save the results
 
     # Inputs from Pharmcat_vcf_preprocesssor.py
     File? sample_file  # Optional file containing a list of sample IDs

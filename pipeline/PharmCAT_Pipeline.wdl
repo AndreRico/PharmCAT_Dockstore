@@ -1,152 +1,71 @@
 version 1.0
 
 workflow pharmcat_pipeline {
-  meta {
-    author: "ClinPGx"
-    email: "pharmcat@pharmgkb.org"
-    description: "This workflow runs a VCF file through the PharmCAT pipeline."
-  }
-
-  parameter_meta {
-    # description for this is intentionally different from pipeline script because it's hard to
-    # support a file of files on cloud services and directories aren't supported
-    vcf_file: "A VCF file (can be gzipped or bgzipped)."
-    sample_ids: "A comma-separated list of sample IDs.  Only applicable if you have multiple samples and only want to work on specific ones."
-    sample_file: "A file containing a list of sample IDs, one sample ID per line.  Only applicable if you have multiple samples and only want to work on specific ones."
-
-    missing_to_ref: "Assume genotypes at missing PGx sites are 0/0.  DANGEROUS!"
-    no_gvcf_check: "Bypass check if VCF file is in gVCF format."
-    # not including retain_specific_regions and reference_regions
-
-    run_matcher: "Run named allele matcher independently."
-    matcher_all_results: "Return all possible diplotypes, not just top hits."
-    matcher_save_html: "Save named allele matcher results as HTML.'"
-    research_mode: "Comma-separated list of research features to enable: [cyp2d6, combinations]"
-
-    run_phenotyper: "Run phenotyper independently."
-
-    run_reporter: "Run reporter independently."
-    reporter_sources: "Comma-separated list of sources to limit recommendations to: [CPIC, DPWG, FDA]"
-    reporter_extended: "Write an extended report (includes all possible genes and drugs, even if no data is available)"
-    reporter_save_json: "Save reporter results as JSON."
-
-    base_filename: "Prefix for output files.  Defaults to the same base name as the input."
-    delete_intermediate_files: "Delete intermediate PharmCAT files.  Defaults to saving all files."
-
-    max_concurrent_processes: "The maximum number of processes to use when concurrent mode is enabled."
-    max_memory: "The maximum memory PharmCAT should use (e.g. '64G')."
-  }
-
-
   input {
-    File vcf_file
-    String sample_ids = ""
-    File? sample_file
-    Boolean missing_to_ref = false
-    Boolean no_gvcf_check = false
-    Boolean run_matcher = false
-    Boolean matcher_all_results = false
-    Boolean matcher_save_html = false
-    String research_mode = ""
-    Boolean run_phenotyper = false
-    Boolean run_reporter = false
-    String reporter_sources = ""
-    Boolean reporter_extended = false
-    Boolean reporter_save_json = false
-    String base_filename = ""
-    Boolean delete_intermediate_files = false
+    File? files_list  # Optional input file containing list of URLs
+    Array[File]? files_local  # Optional array of files
+    String? files_directory  # Read all VCF from a diretory
+    String? results_directory  # Write the Results in Cloud Diretory
     Int max_concurrent_processes = 1
     String max_memory = "4G"
   }
 
-  call pharmcat_pipeline_task {
+  call a_cloud_reader_task {
     input:
-      vcf_file = vcf_file,
-      sample_ids = sample_ids,
-      sample_file = sample_file,
-      missing_to_ref = missing_to_ref,
-      no_gvcf_check = no_gvcf_check,
-      run_matcher = run_matcher,
-      matcher_all_results = matcher_all_results,
-      matcher_save_html = matcher_save_html,
-      research_mode = research_mode,
-      run_phenotyper = run_phenotyper,
-      run_reporter = run_reporter,
-      reporter_sources = reporter_sources,
-      reporter_extended = reporter_extended,
-      reporter_save_json = reporter_save_json,
-      base_filename = base_filename,
-      delete_intermediate_files = delete_intermediate_files,
+      files_list = files_list,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory
   }
 
   output {
-    Array[File] results = pharmcat_pipeline_task.results
+    File compressed_files = a_cloud_reader_task.compressed_files
   }
 }
 
-
-task pharmcat_pipeline_task {
-  meta {
-    author: "ClinPGx"
-    email: "pharmcat@pharmgkb.org"
-    description: "This task run a VCF file through the PharmCAT pipeline."
-  }
-
+task a_cloud_reader_task {
   input {
-    File vcf_file
-    String sample_ids = ""
-    File? sample_file
-    Boolean missing_to_ref = false
-    Boolean no_gvcf_check = false
-    Boolean run_matcher = false
-    Boolean matcher_all_results = false
-    Boolean matcher_save_html = false
-    String research_mode = ""
-    Boolean run_phenotyper = false
-    Boolean run_reporter = false
-    String reporter_sources = ""
-    Boolean reporter_extended = false
-    Boolean reporter_save_json = false
-    String base_filename = ""
-    Boolean delete_intermediate_files = false
-    Int max_concurrent_processes = 1
-    String max_memory = "4G"
+    File? files_list  # Optional input file containing list of URLs
+    Int max_concurrent_processes
+    String max_memory
   }
 
   command <<<
-    set -x -e -o pipefail
-    mkdir -p data
-    cp ~{vcf_file} data/
+    set -e -x -o pipefail
 
-    pharmcat_pipeline data/$(basename ~{vcf_file}) \
-    ~{if sample_ids != "" then '-s ' + sample_ids else ''} \
-    ~{if defined(sample_file) then '-S ' + sample_file else ''} \
-    ~{if missing_to_ref then '-0' else ''} \
-    ~{if no_gvcf_check then '-G' else ''} \
-    ~{if run_matcher then '-matcher' else ''} \
-    ~{if matcher_all_results then '-ma' else ''} \
-    ~{if matcher_save_html then '-matcherHtml' else ''} \
-    ~{if research_mode != "" then '-research ' + research_mode else ''} \
-    ~{if run_phenotyper then '-phenotyper' else ''} \
-    ~{if run_reporter then '-reporter' else ''} \
-    ~{if reporter_sources != "" then '-rs ' + reporter_sources else ''} \
-    ~{if reporter_extended then '-re' else ''} \
-    ~{if reporter_save_json then '-reporterJson' else ''} \
-    ~{if base_filename != "" then '-bf ' + base_filename else ''} \
-    ~{if delete_intermediate_files then '-del' else ''} \
-    -cp ~{max_concurrent_processes} -cm ~{max_memory}
+    # Install necessary tools
+    apt-get update && apt-get install -y \
+      wget \
+      curl \
+      python3 \
+      python3-pip \
+      unzip
+
+    # Create folders
+    mkdir -p files
+    mkdir -p files/VCFs_inputs
+
+    # Create log file
+    log_file="files/log.txt"
+    touch $log_file
+    echo "Start Cloud Reader Task" >> $log_file
+
+    # Create the txt file
+    VCFs_list="files/VCFs_list.txt"
+    touch $VCFs_list
+
+    # Check gsutil
+    gsutil --version >> $log_file
+
   >>>
 
   output {
-    Array[File] results = glob("data/*")
+    # Return the compressed file instead of an array of individual files
+    File compressed_files = "files/log.txt"
   }
 
   runtime {
-    docker: "pgkb/pharmcat:2.13.0"
+    docker: "google/cloud-sdk:slim"
     memory: max_memory
     cpu: max_concurrent_processes
   }
 }
-
