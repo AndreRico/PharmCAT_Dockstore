@@ -280,15 +280,15 @@ task pipeline_task {
     elif [[ -z "~{vcf_file}" ]]; then
       echo "Processing all individual VCF files in the directory" >> $log_file
       
-      ls files/VCFs_inputs/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
+      ls files/input_directory/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
 
-      # # Run all vcf files in the diretory individually
-      # for vcf_file in $(cat $VCFs_list); do
-      #   echo "Processing individual VCF file: $vcf_file" >> $log_file
-      #   cmd="pharmcat_pipeline $vcf_file $args"
-      #   echo "Running command: $cmd" >> $log_file
-      #   eval $cmd
-      # done
+      # Run all vcf files in the diretory individually
+      for vcf_file in $(cat $VCFs_list); do
+        echo "Processing individual VCF file: $vcf_file" >> $log_file
+        cmd="pharmcat_pipeline $vcf_file $args"
+        echo "Running command: $cmd" >> $log_file
+        eval $cmd
+      done
 
     else
       echo "No VCF or list of VCFs provided. Exiting." >> $log_file
