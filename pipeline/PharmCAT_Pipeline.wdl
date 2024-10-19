@@ -261,8 +261,8 @@ task pipeline_task {
     # echo "Running: $cmd" >> files/log.txt
     # eval $cmd
 
-    # VCFs_list="files/VCFs_list.txt"
-    # touch $VCFs_list
+    VCFs_list="files/VCFs_list.txt"
+    touch $VCFs_list
 
     echo "Run PharmCAT Pipeline" >> $log_file
 
@@ -279,6 +279,7 @@ task pipeline_task {
     # Option 2: None VCF or TSV input. Check directory content to process
     elif [[ -z "~{vcf_file}" ]]; then
       echo "Processing all individual VCF files in the directory" >> $log_file
+      
       ls files/VCFs_inputs/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
 
       # Run all vcf files in the diretory individually
@@ -306,7 +307,7 @@ task pipeline_task {
   }
 
   runtime {
-    docker: "pgkb/pharmcat:${docker_version}"  # Use the user-specified or default Docker version
+    docker: "pgkb/pharmcat:${docker_version}" 
     memory: max_memory
     cpu: max_concurrent_processes
   }
