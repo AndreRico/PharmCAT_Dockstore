@@ -36,6 +36,7 @@ workflow pharmcat_pipeline {
   output {
     # File results = pipeline_task.results
     File result_cloud_reader = cloud_reader_task.result_cloud_reader
+    File results = pipeline_task.results
   }
 }
 
@@ -266,34 +267,35 @@ task pipeline_task {
 
     echo "Run PharmCAT Pipeline" >> $log_file
 
-    # Option 1: User add on VCF or TSV file in the vcf_file inputx
-    if [[ -n "~{vcf_file}" && -f ~{vcf_file} ]]; then
-      # Copy to input_directory because host all vcf files in tsv or outside.calls
-      cp ~{vcf_file} files/input_directory
-      echo "Processing as a single mode VCF or TSV" >> $log_file
-      # Prepare command sintax
-      cmd="pharmcat_pipeline files/input_directory/$(basename ~{vcf_file}) $args"
+    # # Option 1: User add on VCF or TSV file in the vcf_file inputx
+    # if [[ -n "~{vcf_file}" && -f ~{vcf_file} ]]; then
+    #   # Copy to input_directory because host all vcf files in tsv or outside.calls
+    #   cp ~{vcf_file} files/input_directory
+    #   echo "Processing as a single mode VCF or TSV" >> $log_file
+    #   # Prepare command sintax
+    #   cmd="pharmcat_pipeline files/input_directory/$(basename ~{vcf_file}) $args"
+    #   echo "Running command: $cmd" >> $log_file
+    #   eval $cmd
+
+    # # Option 2: None VCF or TSV input. Check directory content to process
+    # elif [[ -z "~{vcf_file}" ]]; then
+
+    echo "Processing all individual VCF files in the directory" >> $log_file
+    
+    ls files/input_directory/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
+
+    # Run all vcf files in the diretory individually
+    for vcf_file in $(cat $VCFs_list); do
+      echo "Processing individual VCF file: $vcf_file" >> $log_file
+      cmd="pharmcat_pipeline $vcf_file $args"
       echo "Running command: $cmd" >> $log_file
       eval $cmd
+    done
 
-    # Option 2: None VCF or TSV input. Check directory content to process
-    elif [[ -z "~{vcf_file}" ]]; then
-      echo "Processing all individual VCF files in the directory" >> $log_file
-      
-      # ls files/input_directory/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
-
-      # # Run all vcf files in the diretory individually
-      # for vcf_file in $(cat $VCFs_list); do
-      #   echo "Processing individual VCF file: $vcf_file" >> $log_file
-      #   cmd="pharmcat_pipeline $vcf_file $args"
-      #   echo "Running command: $cmd" >> $log_file
-      #   eval $cmd
-      # done
-
-    else
-      echo "No VCF or list of VCFs provided. Exiting." >> $log_file
-      exit 1
-    fi
+    # else
+    #   echo "No VCF or list of VCFs provided. Exiting." >> $log_file
+    #   exit 1
+    # fi
 
     # Run the command
     echo "Pharmcat_pipeline finished" >> $log_file
