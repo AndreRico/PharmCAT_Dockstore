@@ -266,7 +266,7 @@ task pipeline_task {
 
     echo "Run PharmCAT Pipeline" >> $log_file
 
-    # Option 1: User add on VCF or TSV file in the vcf_file input
+    # Option 1: User add on VCF or TSV file in the vcf_file inputx
     if [[ -n "~{vcf_file}" && -f ~{vcf_file} ]]; then
       # Copy to input_directory because host all vcf files in tsv or outside.calls
       cp ~{vcf_file} files/input_directory
@@ -282,13 +282,13 @@ task pipeline_task {
       
       ls files/VCFs_inputs/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
 
-      # Run all vcf files in the diretory individually
-      for vcf_file in $(cat $VCFs_list); do
-        echo "Processing individual VCF file: $vcf_file" >> $log_file
-        cmd="pharmcat_pipeline $vcf_file $args"
-        echo "Running command: $cmd" >> $log_file
-        eval $cmd
-      done
+      # # Run all vcf files in the diretory individually
+      # for vcf_file in $(cat $VCFs_list); do
+      #   echo "Processing individual VCF file: $vcf_file" >> $log_file
+      #   cmd="pharmcat_pipeline $vcf_file $args"
+      #   echo "Running command: $cmd" >> $log_file
+      #   eval $cmd
+      # done
 
     else
       echo "No VCF or list of VCFs provided. Exiting." >> $log_file
