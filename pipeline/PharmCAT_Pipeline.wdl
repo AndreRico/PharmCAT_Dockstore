@@ -291,11 +291,6 @@ task pipeline_task {
     #     eval $cmd
     #   done < $list
 
-    # else
-    #   echo "No VCF or list of VCFs provided or found in directory. Exiting." >> $log_file
-    #   exit 1
-    # fi
-
     elif [[ -z "~{vcf_file}" ]]; then
       if [[ $(ls files/input_directory/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
         echo "Processing all individual VCF files in the directory: files/input_directory/" >> $log_file
@@ -315,6 +310,12 @@ task pipeline_task {
         echo "No VCF files found in files/input_directory. Exiting." >> $log_file
         exit 1
       fi
+
+    else
+      echo "No VCF or list of VCFs provided or found in directory. Exiting." >> $log_file
+      exit 1
+    fi
+
 
     # Run the command
     echo "Pharmcat_pipeline finished" >> $log_file
