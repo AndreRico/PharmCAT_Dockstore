@@ -270,7 +270,8 @@ task pipeline_task {
     vcf_file="~{vcf_file}"
 
     # option 1: User add on VCF or TSV file in the vcf_file input
-    if [[ -n ~{vcf_file} && -f ~{vcf_file} ]]; then
+    if [[ -n "$vcf_file" && -f "$vcf_file" ]]; then
+    # if [[ -n ~{vcf_file} && -f ~{vcf_file} ]]; then
       # mkdir -p data
       cp ~{vcf_file} wf/data
       echo "Processing list of VCF files as a single block from: ~{vcf_file}" >> $log_file
