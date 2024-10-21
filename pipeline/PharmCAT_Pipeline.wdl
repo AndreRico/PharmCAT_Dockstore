@@ -292,12 +292,12 @@ task pipeline_task {
     #   done < $list
 
     elif [[ -z "~{vcf_file}" ]]; then
-      if [[ $(ls files/input_directory/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
-        echo "Processing all individual VCF files in the directory: files/input_directory/" >> $log_file
+      if [[ $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
+        echo "Processing all individual VCF files in the directory: wf/data/" >> $log_file
 
         # Criar uma lista com todos os arquivos VCF no diretório
-        VCFs_list="files/VCFs_list.txt"
-        ls files/input_directory/*.vcf.* > $VCFs_list
+        VCFs_list="wf/VCFs_list.txt"
+        ls wf/data/*.vcf.* > $VCFs_list
 
         # Processar cada arquivo VCF individualmente
         while read -r vcf_file; do
