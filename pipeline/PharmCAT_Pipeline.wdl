@@ -21,7 +21,7 @@ workflow pharmcat_pipeline {
 
   call pipeline_task {
       input:
-        result_cloud_reader = cloud_reader_task.result_cloud_reader,
+        cloud_reader_results = cloud_reader_task.cloud_reader_results,
         docker_version = pharmcat_version,
         max_concurrent_processes = max_concurrent_processes,
         max_memory = max_memory,
@@ -35,11 +35,14 @@ workflow pharmcat_pipeline {
 
   output {
     # File results = pipeline_task.results
-    File result_cloud_reader = cloud_reader_task.result_cloud_reader
-    File results = pipeline_task.results
+    File cloud_reader_results = cloud_reader_task.cloud_reader_results
+    File results = pipeline_task.pipeline_results
   }
 }
 
+# ---------------------------------------------------------------------
+# TASK 1: Cloud Reader Task
+# ---------------------------------------------------------------------
 task cloud_reader_task {
   input {
     String? input_directory
@@ -51,10 +54,11 @@ task cloud_reader_task {
     set -e -x -o pipefail
 
     # Create folders
-    mkdir -p files/input_directory
+    mkdir -p wf/data
+    mkdir -p wf/results
 
     # Create log file
-    log_file="files/log.txt"
+    log_file="wf/log.txt"
     touch $log_file
     echo "-----------------------" >> $log_file
     echo "Start Cloud Reader Task" >> $log_file
@@ -64,7 +68,6 @@ task cloud_reader_task {
     gsutil --version >> $log_file
 
     # Process the Directory Input [ files_directory ]
-    # -----------------------------------------------
     if [[ ~{true='true' false='false' defined(input_directory)} == "true" ]]; then
       echo "Start to Read from Files Directory: ~{input_directory}" >> $log_file
       # Check if input_directory is a Google Storage
@@ -73,8 +76,8 @@ task cloud_reader_task {
         # List all the files in the directory
         gsutil ls "~{input_directory}/*" >> $log_file
         # Copy all the files from the directory to the local folder
-        gsutil cp "~{input_directory}/*" files/input_directory/ >> $log_file
-        echo "All files from ~{input_directory} have been copied to files/input_directory/" >> $log_file
+        gsutil cp "~{input_directory}/*" wf/data/ >> $log_file
+        echo "All files from ~{input_directory} have been copied to wf/data/" >> $log_file
       else
         echo "ERROR: The directory path is not a valid gs:// URL. Skipping file copy." >> $log_file
       fi
@@ -82,22 +85,20 @@ task cloud_reader_task {
       echo "The files_directory input type wasn't defined" >> $log_file
     fi
 
-
     # Prepare the folder structure to process in next task
-    if [[ $(ls files/input_directory | wc -l) -gt 0 ]]; then
-      file_count=$(ls files/input_directory/* | wc -l)
+    if [[ $(ls wf/data | wc -l) -gt 0 ]]; then
+      file_count=$(ls wf/data/* | wc -l)
       echo "Number of files copied: $file_count" >> $log_file
       echo "End of Cloud Reader Task" >> $log_file
-      tar -czvf files.tar.gz files
+      tar -czvf cloud_reader_results.tar.gz wf
     else
       echo "No files to compress" >> $log_file
-      tar -czvf files.tar.gz files
+      tar -czvf cloud_reader_results.tar.gz wf
     fi
-
   >>>
 
   output {
-    File result_cloud_reader = "files.tar.gz"
+    File cloud_reader_results = "cloud_reader_results.tar.gz"
   }
 
   runtime {
@@ -107,6 +108,9 @@ task cloud_reader_task {
   }
 }
 
+# ---------------------------------------------------------------------
+# TASK 2: Pipeline Task
+# ---------------------------------------------------------------------
 task pipeline_task {
   input {
     # Environment Settings
@@ -116,7 +120,7 @@ task pipeline_task {
     Boolean delete_intermediate_files = false
 
     # Diretory from cloud_reader_task
-    File result_cloud_reader
+    File cloud_reader_results
 
     # Read single files
     File? vcf_file
@@ -152,17 +156,21 @@ task pipeline_task {
     set -e -x -o pipefail
   
     # Extract the compressed file from a_cloud_reader_task
-    tar -xzvf ~{result_cloud_reader}
+    tar -xzvf ~{cloud_reader_results}
 
     # Start log file
-    log_file="files/log.txt"
+    log_file="wf/log.txt"
     echo " " >> $log_file
     echo "---------------------------" >> $log_file
     echo "Start VCF Preprocessor Task" >> $log_file
     echo "---------------------------" >> $log_file
 
+    # Create list file to keep VCFs to process
+    list="wf/list.txt"
+    touch $list
+
     # Common arguments
-    arg=" -o files/Results"
+    arg=" -o wf/results"
 
     # Sample inputs
     if [ ! -z "$sample_file" ]; then
@@ -256,67 +264,22 @@ task pipeline_task {
     #   cohorts, such as UK Biobank). Input VCF files must at least comply with 
     #   Variant Call Format (VCF) Version >= 4.2.
 
-    # The $single_vcf_mode will control the model to run
-    # Exemplo de comando final
-    # cmd="python3 /path/to/pharmcat_pipeline.py $arg"
-    # echo "Running: $cmd" >> files/log.txt
-    # eval $cmd
-
-    VCFs_list="files/VCFs_list.txt"
-    touch $VCFs_list
-
-
-
-    # # Option 1: User add on VCF or TSV file in the vcf_file inputx
-    # if [[ -n "~{vcf_file}" && -f ~{vcf_file} ]]; then
-    #   # Copy to input_directory because host all vcf files in tsv or outside.calls
-    #   cp ~{vcf_file} files/input_directory
-    #   echo "Processing as a single mode VCF or TSV" >> $log_file
-    #   # Prepare command sintax
-    #   cmd="pharmcat_pipeline files/input_directory/$(basename ~{vcf_file}) $args"
-    #   echo "Running command: $cmd" >> $log_file
-    #   eval $cmd
-
-    # # Option 2: None VCF or TSV input. Check directory content to process
-    # elif [[ -z "~{vcf_file}" ]]; then
-
-    # echo "Processing all individual VCF files in the directory" >> $log_file
-    
-    # ls files/input_directory/*.vcf.* >> $VCFs_list  # Create list with all vcf in the directory
-
-    # # Run all vcf files in the diretory individually
-    # for vcf_file in $(cat $VCFs_list); do
-    #   echo "Processing individual VCF file: $vcf_file" >> $log_file
-    #   cmd="pharmcat_pipeline $vcf_file $args"
-    #   echo "Running command: $cmd" >> $log_file
-    #   eval $cmd
-    # done
-
-    # else
-    #   echo "No VCF or list of VCFs provided. Exiting." >> $log_file
-    #   exit 1
-    # fi
-
-    # TODO: PAREI AQUI ; Implementar o codigo abaixo
-    # Start PharmCAT Pipeline
-    echo "Starting PharmCAT Pipeline" >> $log_file
-
     # option 1: User add on VCF or TSV file in the vcf_file input
     if [[ -n "~{vcf_file}" && -f ~{vcf_file} ]]; then
       # mkdir -p data
-      cp ~{vcf_file} files/input_directory
+      cp ~{vcf_file} wf/data
       echo "Processing list of VCF files as a single block from: ~{vcf_file}" >> $log_file
-      cmd="pharmcat_pipeline files/input_directory/$(basename ~{vcf_file}) $arg"
+      cmd="pharmcat_pipeline wf/data/$(basename ~{vcf_file}) $arg"
       echo "Running command: $cmd" >> $log_file
       eval $cmd
 
     # Option 2: None VCF or TSV input. Check directory content to process
-    elif [[ -z "~{vcf_file}" && $(ls files/input_directory/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
-      echo "Processing all individual VCF files in the directory: files/input_directory/" >> $log_file
+    elif [[ -z "~{vcf_file}" && $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
+      echo "Processing all individual VCF files in the directory mode" >> $log_file
 
       # Criar uma lista com todos os arquivos VCF no diretório
-      VCFs_list="files/VCFs_list.txt"
-      ls files/input_directory/*.vcf.* > $VCFs_list
+      VCFs_list="wf/list.txt"
+      ls wf/data/*.vcf.* > $list
 
       # Processar cada arquivo VCF individualmente
       while read -r vcf_file; do
@@ -324,7 +287,7 @@ task pipeline_task {
         cmd="pharmcat_pipeline $vcf_file $arg"
         echo "Running command: $cmd" >> $log_file
         eval $cmd
-      done < $VCFs_list
+      done < $list
 
     else
       echo "No VCF or list of VCFs provided or found in directory. Exiting." >> $log_file
@@ -334,12 +297,12 @@ task pipeline_task {
     # Run the command
     echo "Pharmcat_pipeline finished" >> $log_file
 
-    # Package the entire 'files' directory and create a tar.gz file
-    tar -czvf results.tar.gz files
+    # Package the entire 'wf' directory and create a tar.gz file
+    tar -czvf pipeline_results.tar.gz wf
   >>>
 
   output {
-      File results = "results.tar.gz"
+      File pipeline_results = "pipeline_results.tar.gz"
   }
 
   runtime {
