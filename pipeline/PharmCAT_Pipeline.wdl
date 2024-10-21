@@ -403,9 +403,9 @@ task cloud_writer_task {
       # TODO - Adicionar suporte para outros diretórios em nuvem
       if [[ "$results_directory" == gs://* ]]; then
         # Copiar arquivos de resultados individuais
-        gsutil cp Results/* "$results_directory/" >> $log_file
+        gsutil cp wf/results/* "$results_directory/" >> $log_file
         # Copiar também o arquivo tar.gz com os resultados do pipeline
-        gsutil cp ~{pipeline_results} "$results_directory/" >> $log_file
+        # gsutil cp ~{pipeline_results} "$results_directory/" >> $log_file
       else
         echo "ERROR: Unsupported storage destination. Only gs:// is supported in this task." >> $log_file
         exit 1
