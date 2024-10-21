@@ -27,16 +27,17 @@ workflow pharmcat_pipeline {
         max_memory = max_memory,
   }
   
-  # call cloud_writer_task {
-  #   input:
-  #     results = pipeline_task.results,
-  # }
+  call cloud_writer_task {
+    input:
+      pipeline_results = pipeline_task.pipeline_results,
+  }
 
 
   output {
     # File results = pipeline_task.results
     File cloud_reader_results = cloud_reader_task.cloud_reader_results
-    File results = pipeline_task.pipeline_results
+    File pipeline_results = pipeline_task.pipeline_results
+    File log = cloud_writer_task.log
   }
 }
 
@@ -267,17 +268,60 @@ task pipeline_task {
     #   Variant Call Format (VCF) Version >= 4.2.
 
     # Resolver a variável `vcf_file` fora do bloco condicional
+    # Nao podemos usar a variavel `vcf_file` dentro do bloco condicional
     vcf_file="~{vcf_file}"
+
+    # Obter a extensão do arquivo para verificar se é um arquivo de lista ou um VCF simples
+    file_extension="${vcf_file##*.}"
 
     # option 1: User add on VCF or TSV file in the vcf_file input
     if [[ -n "$vcf_file" && -f "$vcf_file" ]]; then
-    # if [[ -n ~{vcf_file} && -f ~{vcf_file} ]]; then
-      # mkdir -p data
-      cp ~{vcf_file} wf/data
+      # cp ~{vcf_file} wf/data
+      # echo "Processing list of VCF files as a single block from: ~{vcf_file}" >> $log_file
+      # cmd="pharmcat_pipeline wf/data/$(basename ~{vcf_file}) $arg"
+      # echo "Running command: $cmd" >> $log_file
+      # eval $cmd
+
       echo "Processing list of VCF files as a single block from: ~{vcf_file}" >> $log_file
-      cmd="pharmcat_pipeline wf/data/$(basename ~{vcf_file}) $arg"
-      echo "Running command: $cmd" >> $log_file
-      eval $cmd
+
+      if [[ "$file_extension" == "txt" || "$file_extension" == "tsv" ]]; then
+        echo "Treatment pathway from : $vcf_file" >> $log_file
+
+        # Copiar o arquivo de lista para a pasta interna 'wf/data'
+        cp "$vcf_file" wf/data
+        list_file="wf/data/$(basename "$vcf_file")"
+
+        # Criar um novo arquivo de lista com o caminho completo 'wf/data/'
+        adjusted_list="wf/data/adjusted_list.txt"
+        touch $adjusted_list
+
+        # Verificar cada linha no arquivo original e adicionar 'wf/data/' caso necessário
+        while read -r line; do
+          if [[ "$line" == wf/data/* ]]; then
+            # Se a linha já contém 'wf/data/', adicionar diretamente
+            echo "$line" >> $adjusted_list
+          else
+            # Caso contrário, adicionar o prefixo 'wf/data/'
+            echo "wf/data/$line" >> $adjusted_list
+          fi
+        done < "$list_file"
+
+        echo "Adjusted VCF list created at: $adjusted_list" >> $log_file
+
+        # Rodar o PharmCAT com a lista ajustada
+        cmd="pharmcat_pipeline $adjusted_list $arg"
+        echo "Running command: $cmd" >> $log_file
+        eval $cmd
+      
+      else
+        # Caso seja um arquivo VCF simples, processá-lo diretamente
+        echo "Processing single VCF file: $vcf_file" >> $log_file
+        cp "$vcf_file" wf/data
+        cmd="pharmcat_pipeline wf/data/$(basename "$vcf_file") $arg"
+        echo "Running command: $cmd" >> $log_file
+        eval $cmd
+      fi
+
 
     # Option 2: None VCF or TSV input. Check directory content to process
     elif [[ -z "$vcf_file" ]]; then
@@ -304,7 +348,6 @@ task pipeline_task {
     fi
 
 
-
     # Run the command
     echo "Pharmcat_pipeline finished" >> $log_file
 
@@ -324,55 +367,62 @@ task pipeline_task {
 }
 
 
-# task cloud_writer_task {
-#   input {
-#     File? result_vcf_preprocessor
-#     String? results_directory
-#   }
+task cloud_writer_task {
+  input {
+    File? pipeline_results
+    String? results_directory
+  }
 
-#   command <<<
-#     set -e -x -o pipefail
+  command <<<
+    set -e -x -o pipefail
 
-#     # Extract the compressed file from a_cloud_reader_task
-#     tar -xzvf ~{result_vcf_preprocessor}
+    # Extract the compressed file from a_cloud_reader_task
+    tar -xzvf ~{pipeline_results}
 
-#     # Start log file
-#     log_file="files/log.txt"
-#     echo " " >> $log_file
-#     echo "-----------------------" >> $log_file
-#     echo "Start Cloud Writer Task" >> $log_file
-#     echo "-----------------------" >> $log_file
+    # Start log file
+    log_file="wf/log.txt"
+    echo " " >> $log_file
+    echo "-----------------------" >> $log_file
+    echo "Start Cloud Writer Task" >> $log_file
+    echo "-----------------------" >> $log_file
 
-#     # Ensure gsutil is available in this environment
-#     if ! command -v gsutil &> /dev/null; then
-#       echo "ERROR: gsutil not found. Please ensure gsutil is available." >> $log_file
-#       exit 1
-#     fi
+    results_directory="~{results_directory}"
 
-#     # Save Results in directory defined by the user
-#     echo "Copying results to ~{results_directory}" >> $log_file
+    if [[ -z "$results_directory" ]]; then
+      # Ensure gsutil is available in this environment
+      if ! command -v gsutil &> /dev/null; then
+        echo "ERROR: gsutil not found. Please ensure gsutil is available." >> $log_file
+        exit 1
+      fi
 
-#     # TODO - Add other cloud directories 
-#     if [[ ~{results_directory} == gs://* ]]; then
-#       # Copying individual result files
-#       gsutil cp Results/* "~{results_directory}/" >> $log_file
-#       # Copying the pre_processor tar.gz as well
-#       gsutil cp ~{result_vcf_preprocessor} ~{results_directory}/ >> $log_file
-#     else
-#       echo "ERROR: Unsupported storage destination. Only gs:// is supported in this task." >> $log_file
-#       exit 1
-#     fi
+      # Save Results in directory defined by the user
+      echo "Copying results to ~{results_directory}" >> $log_file
 
-#     echo "Cloud Writer Task completed successfully." >> $log_file
-#   >>>
+      # TODO - Add other cloud directories 
+      if [[ ~{results_directory} == gs://* ]]; then
+        # Copying individual result files
+        gsutil cp Results/* "~{results_directory}/" >> $log_file
+        # Copying the pre_processor tar.gz as well
+        gsutil cp ~{pipeline_results} ~{results_directory}/ >> $log_file
+      else
+        echo "ERROR: Unsupported storage destination. Only gs:// is supported in this task." >> $log_file
+        exit 1
+      fi
 
-#   output {
-#     File log = "files/log.txt"
-#   }
+      echo "Cloud Writer Task completed successfully." >> $log_file
+    else
+      echo "No results directory defined. Skipping cloud write." >> $log_file
+    fi
 
-#   runtime {
-#     docker: "ricoandre/cloud-tools:latest"
-#     memory: "4G"
-#     cpu: 1
-#   }
-# }
+  >>>
+
+  output {
+    File log = "wf/log.txt"
+  }
+
+  runtime {
+    docker: "ricoandre/cloud-tools:latest"
+    memory: "4G"
+    cpu: 1
+  }
+}
