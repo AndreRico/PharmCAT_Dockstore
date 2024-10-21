@@ -67,6 +67,8 @@ task cloud_reader_task {
     # Check gsutil
     gsutil --version >> $log_file
 
+    # TODO - Check if the diretory has / at the end, delete if has.
+
     # Process the Directory Input [ files_directory ]
     if [[ ~{true='true' false='false' defined(input_directory)} == "true" ]]; then
       echo "Start to Read from Files Directory: ~{input_directory}" >> $log_file
@@ -273,26 +275,46 @@ task pipeline_task {
       echo "Running command: $cmd" >> $log_file
       eval $cmd
 
-    # Option 2: None VCF or TSV input. Check directory content to process
-    elif [[ -z "~{vcf_file}" && $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
-      echo "Processing all individual VCF files in the directory mode" >> $log_file
+    # # Option 2: None VCF or TSV input. Check directory content to process
+    # elif [[ -z "~{vcf_file}" && $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
+    #   echo "Processing all individual VCF files in the directory mode" >> $log_file
 
-      # Criar uma lista com todos os arquivos VCF no diretório
-      VCFs_list="wf/list.txt"
-      ls wf/data/*.vcf.* > $list
+    #   # Create a list with all VCF files in the directory
+    #   VCFs_list="wf/list.txt"
+    #   ls wf/data/*.vcf.* > $list
 
-      # Processar cada arquivo VCF individualmente
-      while read -r vcf_file; do
-        echo "Processing individual VCF file: $vcf_file" >> $log_file
-        cmd="pharmcat_pipeline $vcf_file $arg"
-        echo "Running command: $cmd" >> $log_file
-        eval $cmd
-      done < $list
+    #   # Process with files in the list
+    #   while read -r vcf_file; do
+    #     echo "Processing individual VCF file: $vcf_file" >> $log_file
+    #     cmd="pharmcat_pipeline $vcf_file $arg"
+    #     echo "Running command: $cmd" >> $log_file
+    #     eval $cmd
+    #   done < $list
 
-    else
-      echo "No VCF or list of VCFs provided or found in directory. Exiting." >> $log_file
-      exit 1
-    fi
+    # else
+    #   echo "No VCF or list of VCFs provided or found in directory. Exiting." >> $log_file
+    #   exit 1
+    # fi
+
+    elif [[ -z "~{vcf_file}" ]]; then
+      if [[ $(ls files/input_directory/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
+        echo "Processing all individual VCF files in the directory: files/input_directory/" >> $log_file
+
+        # Criar uma lista com todos os arquivos VCF no diretório
+        VCFs_list="files/VCFs_list.txt"
+        ls files/input_directory/*.vcf.* > $VCFs_list
+
+        # Processar cada arquivo VCF individualmente
+        while read -r vcf_file; do
+          echo "Processing individual VCF file: $vcf_file" >> $log_file
+          cmd="pharmcat_pipeline $vcf_file $arg"
+          echo "Running command: $cmd" >> $log_file
+          eval $cmd
+        done < $VCFs_list
+      else
+        echo "No VCF files found in files/input_directory. Exiting." >> $log_file
+        exit 1
+      fi
 
     # Run the command
     echo "Pharmcat_pipeline finished" >> $log_file
