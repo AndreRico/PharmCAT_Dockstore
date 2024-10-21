@@ -276,40 +276,24 @@ task pipeline_task {
       eval $cmd
 
     # # Option 2: None VCF or TSV input. Check directory content to process
-    # elif [[ -z "~{vcf_file}" && $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
-    #   echo "Processing all individual VCF files in the directory mode" >> $log_file
 
-    #   # Create a list with all VCF files in the directory
-    #   VCFs_list="wf/list.txt"
-    #   ls wf/data/*.vcf.* > $list
+    # elif [[ -z "~{vcf_file}" ]]; then
+    #   if [[ $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
+    #     echo "Processing all individual VCF files in the directory: wf/data/" >> $log_file
 
-    #   # Process with files in the list
-    #   while read -r vcf_file; do
-    #     echo "Processing individual VCF file: $vcf_file" >> $log_file
-    #     cmd="pharmcat_pipeline $vcf_file $arg"
-    #     echo "Running command: $cmd" >> $log_file
-    #     eval $cmd
-    #   done < $list
+    #     VCFs_list="wf/VCFs_list.txt"
+    #     ls wf/data/*.vcf.* > $VCFs_list
 
-    elif [[ -z "~{vcf_file}" ]]; then
-      if [[ $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
-        echo "Processing all individual VCF files in the directory: wf/data/" >> $log_file
-
-        # Criar uma lista com todos os arquivos VCF no diretório
-        VCFs_list="wf/VCFs_list.txt"
-        ls wf/data/*.vcf.* > $VCFs_list
-
-        # Processar cada arquivo VCF individualmente
-        while read -r vcf_file; do
-          echo "Processing individual VCF file: $vcf_file" >> $log_file
-          cmd="pharmcat_pipeline $vcf_file $arg"
-          echo "Running command: $cmd" >> $log_file
-          eval $cmd
-        done < $VCFs_list
-      else
-        echo "No VCF files found in files/input_directory. Exiting." >> $log_file
-        exit 1
-      fi
+    #     while read -r vcf_file; do
+    #       echo "Processing individual VCF file: $vcf_file" >> $log_file
+    #       cmd="pharmcat_pipeline $vcf_file $arg"
+    #       echo "Running command: $cmd" >> $log_file
+    #       eval $cmd
+    #     done < $VCFs_list
+    #   else
+    #     echo "No VCF files found in files/input_directory. Exiting." >> $log_file
+    #     exit 1
+    #   fi
 
     else
       echo "No VCF or list of VCFs provided or found in directory. Exiting." >> $log_file
