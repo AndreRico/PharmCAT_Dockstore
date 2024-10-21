@@ -376,34 +376,36 @@ task cloud_writer_task {
   command <<<
     set -e -x -o pipefail
 
-    # Extract the compressed file from a_cloud_reader_task
+    # Extrair o arquivo compactado
     tar -xzvf ~{pipeline_results}
 
-    # Start log file
+    # Iniciar arquivo de log
     log_file="wf/log.txt"
     echo " " >> $log_file
     echo "-----------------------" >> $log_file
     echo "Start Cloud Writer Task" >> $log_file
     echo "-----------------------" >> $log_file
 
+    # Definir a variável results_directory como string
     results_directory="~{results_directory}"
 
-    if [[ -z "$results_directory" ]]; then
-      # Ensure gsutil is available in this environment
+    # Verificar se results_directory foi definido e não está vazio
+    if [[ -n "$results_directory" ]]; then  
+      # Verificar se gsutil está disponível neste ambiente
       if ! command -v gsutil &> /dev/null; then
         echo "ERROR: gsutil not found. Please ensure gsutil is available." >> $log_file
         exit 1
       fi
 
-      # Save Results in directory defined by the user
-      echo "Copying results to ~{results_directory}" >> $log_file
+      # Salvar resultados no diretório definido pelo usuário
+      echo "Copying results to $results_directory" >> $log_file
 
-      # TODO - Add other cloud directories 
-      if [[ ~{results_directory} == gs://* ]]; then
-        # Copying individual result files
-        gsutil cp Results/* "~{results_directory}/" >> $log_file
-        # Copying the pre_processor tar.gz as well
-        gsutil cp ~{pipeline_results} ~{results_directory}/ >> $log_file
+      # TODO - Adicionar suporte para outros diretórios em nuvem
+      if [[ "$results_directory" == gs://* ]]; then
+        # Copiar arquivos de resultados individuais
+        gsutil cp Results/* "$results_directory/" >> $log_file
+        # Copiar também o arquivo tar.gz com os resultados do pipeline
+        gsutil cp ~{pipeline_results} "$results_directory/" >> $log_file
       else
         echo "ERROR: Unsupported storage destination. Only gs:// is supported in this task." >> $log_file
         exit 1
