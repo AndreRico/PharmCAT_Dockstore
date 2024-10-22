@@ -97,9 +97,9 @@ workflow pharmcat_pipeline {
         run_phenotype = o__run_phenotype,
         run_reporter = p__run_reporter,
         reporter_sources = q__reporter_sources,
-        reporter_sources = r__reporter_sources,
+        reporter_extended = r__reporter_extended,
         reporter_save_json = s__reporter_save_json,
-
+        delete_intermediate_files = t__delete_intermediate_files,
         docker_version = u__pharmcat_version,
         max_concurrent_processes = v__max_concurrent_processes,
         max_memory = w__max_memory,
