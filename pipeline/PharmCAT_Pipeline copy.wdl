@@ -10,7 +10,7 @@ workflow pharmcat_pipeline {
   parameter_meta {
     # Arg to input/output data
     vcf_file: "A VCF file or a list of files name (can be gzipped or bgzipped)."
-    01_input_directory: "A directory containing VCF files to process."
+    input_directory: "A directory containing VCF files to process."
     results_directory: "The directory to save the results.  Only applicable if you want to save the results in a cloud directory."
     
     # Args to Sample
@@ -47,7 +47,7 @@ workflow pharmcat_pipeline {
   
   input {
     # File? input_file  # Simple VCF or TSV file
-    String? 01_input_directory  # Read all VCF from a diretory
+    String? input_directory  # Read all VCF from a diretory
     # String? results_directory  # Write the Results in Cloud Diretory
     
     String pharmcat_version = "2.13.0"
@@ -58,7 +58,7 @@ workflow pharmcat_pipeline {
 
   call cloud_reader_task {
     input:
-      input_directory = 01_input_directory,
+      input_directory = input_directory,
       max_concurrent_processes = max_concurrent_processes,
       max_memory = max_memory
   }
