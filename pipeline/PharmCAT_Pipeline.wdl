@@ -9,9 +9,9 @@ workflow pharmcat_pipeline {
 
   parameter_meta {
     # Arg to input/output data
-    vcf_file: "A VCF file or a list of files name (can be gzipped or bgzipped)."
-    a_input_directory: "A directory containing VCF files to process."
-    results_directory: "The directory to save the results.  Only applicable if you want to save the results in a cloud directory."
+    a__vcf_file: "A VCF file or a list of files name (can be gzipped or bgzipped)."
+    b__input_directory: "A directory containing VCF files to process."
+    c__results_directory: "The directory to save the results.  Only applicable if you want to save the results in a cloud directory."
     
     # Args to Sample
     sample_ids: "A comma-separated list of sample IDs.  Only applicable if you have multiple samples and only want to work on specific ones."
@@ -46,34 +46,69 @@ workflow pharmcat_pipeline {
   }
   
   input {
-    # File? input_file  # Simple VCF or TSV file
-    String? a_input_directory  # Read all VCF from a diretory
-    # String? results_directory  # Write the Results in Cloud Diretory
-    
-    String pharmcat_version = "2.13.0"
-    Int max_concurrent_processes = 1
-    String max_memory = "4G"
-
+    File? a__input_file  # Simple VCF or TSV file
+    String? b__input_directory  # Read all VCF from a diretory
+    String? c__results_directory  # Write the Results in Cloud Diretory
+    String? d__base_filename
+    File? e__sample_file
+    String? f__sample_ids
+    Boolean g__missing_to_ref = false
+    Boolean h__no_gvcf_check = false
+    Boolean i__retain_specific_regions = false
+    File? j__reference_regions_to_retain
+    Boolean k__run_matcher = false
+    Boolean l__matcher_all_results = false
+    Boolean m__matcher_save_html = false
+    String n__research_mode = ""
+    Boolean o__run_phenotype = false
+    Boolean p__run_reporter = false 
+    String q__reporter_sources = ""
+    Boolean r__reporter_extended = false
+    Boolean s__reporter_save_json = false
+    Boolean t__delete_intermediate_files = false
+    String u__pharmcat_version = "2.13.0"
+    Int v__max_concurrent_processes = 1
+    String w__max_memory = "4G"
   }
 
   call cloud_reader_task {
     input:
-      input_directory = a_input_directory,
-      max_concurrent_processes = max_concurrent_processes,
-      max_memory = max_memory
+      input_directory = b__input_directory,
+      max_concurrent_processes = v__max_concurrent_processes,
+      max_memory = w__max_memory
   }
 
   call pipeline_task {
       input:
         cloud_reader_results = cloud_reader_task.cloud_reader_results,
-        docker_version = pharmcat_version,
-        max_concurrent_processes = max_concurrent_processes,
-        max_memory = max_memory,
+        vcf_file = a__input_file,
+
+        base_filename = d__base_filename,
+        sample_file = e__sample_file,
+        sample_ids = f__sample_ids,
+        missing_to_ref = g__missing_to_ref,
+        no_gvcf_check = h__no_gvcf_check,
+        retain_specific_regions = i__retain_specific_regions,
+        reference_regions_to_retain = j__reference_regions_to_retain,
+        run_matcher = k__run_matcher,
+        matcher_all_results = l__matcher_all_results,
+        matcher_save_html = m__matcher_save_html,
+        research_mode = n__research_mode,
+        run_phenotype = o__run_phenotype,
+        run_reporter = p__run_reporter,
+        reporter_sources = q__reporter_sources,
+        reporter_sources = r__reporter_sources,
+        reporter_save_json = s__reporter_save_json,
+
+        docker_version = u__pharmcat_version,
+        max_concurrent_processes = v__max_concurrent_processes,
+        max_memory = w__max_memory,
   }
   
   call cloud_writer_task {
     input:
       pipeline_results = pipeline_task.pipeline_results,
+      results_directory = c__results_directory,
   }
 
 
@@ -113,7 +148,6 @@ task cloud_reader_task {
     gsutil --version >> $log_file
 
     # TODO - Check if the diretory has / at the end, delete if has.
-
     # Process the Directory Input [ files_directory ]
     if [[ ~{true='true' false='false' defined(input_directory)} == "true" ]]; then
       echo "Start to Read from Files Directory: ~{input_directory}" >> $log_file
@@ -410,7 +444,9 @@ task pipeline_task {
   }
 }
 
-
+# ---------------------------------------------------------------------
+# TASK 3: Pipeline Task
+# ---------------------------------------------------------------------
 task cloud_writer_task {
   input {
     File? pipeline_results
