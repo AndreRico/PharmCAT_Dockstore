@@ -9,40 +9,34 @@ workflow pharmcat_pipeline {
 
   parameter_meta {
     # Arg to input/output data
-    a__vcf_file: "A VCF file or a list of files name (can be gzipped or bgzipped)."
-    b__input_directory: "A directory containing VCF files to process."
-    c__results_directory: "The directory to save the results.  Only applicable if you want to save the results in a cloud directory."
-    
+    vcf_file: "A VCF file or a list of files name (can be gzipped or bgzipped)."
+    input_directory: "A directory containing VCF files to process."
+    results_directory: "The directory to save the results.  Only applicable if you want to save the results in a cloud directory."
+    base_filename: "Prefix for output files.  Defaults to the same base name as the input."
     # Args to Sample
     sample_ids: "A comma-separated list of sample IDs.  Only applicable if you have multiple samples and only want to work on specific ones."
     sample_file: "A file containing a list of sample IDs, one sample ID per line.  Only applicable if you have multiple samples and only want to work on specific ones."
-
     # Args to Preprocessor
     missing_to_ref: "Assume genotypes at missing PGx sites are 0/0.  DANGEROUS!"
     no_gvcf_check: "Bypass check if VCF file is in gVCF format."
     # not including retain_specific_regions and reference_regions
-
     # Args to Named Allele Matcher
     run_matcher: "Run named allele matcher independently."
     matcher_all_results: "Return all possible diplotypes, not just top hits."
     matcher_save_html: "Save named allele matcher results as HTML.'"
     research_mode: "Comma-separated list of research features to enable: [cyp2d6, combinations]"
-
     # Args to Phonopyter
     run_phenotyper: "Run phenotyper independently."
-
     # Args to Reporter
     run_reporter: "Run reporter independently."
     reporter_sources: "Comma-separated list of sources to limit recommendations to: [CPIC, DPWG, FDA]"
     reporter_extended: "Write an extended report (includes all possible genes and drugs, even if no data is available)"
     reporter_save_json: "Save reporter results as JSON."
-
     # Args to settings
     max_concurrent_processes: "The maximum number of processes to use when concurrent mode is enabled."
     max_memory: "The maximum memory PharmCAT should use (e.g. '64G')."
     pharmcat_version: "PharmCAT version to use in the pipeline."
     delete_intermediate_files: "Delete intermediate PharmCAT files.  Defaults to saving all files."
-    # base_filename: "Prefix for output files.  Defaults to the same base name as the input."
   }
   
   input {
@@ -82,7 +76,6 @@ workflow pharmcat_pipeline {
       input:
         cloud_reader_results = cloud_reader_task.cloud_reader_results,
         vcf_file = a__input_file,
-
         base_filename = d__base_filename,
         sample_file = e__sample_file,
         sample_ids = f__sample_ids,
@@ -110,7 +103,6 @@ workflow pharmcat_pipeline {
       pipeline_results = pipeline_task.pipeline_results,
       results_directory = c__results_directory,
   }
-
 
   output {
     # File results = pipeline_task.results
@@ -345,11 +337,10 @@ task pipeline_task {
     #   cohorts, such as UK Biobank). Input VCF files must at least comply with 
     #   Variant Call Format (VCF) Version >= 4.2.
 
-    # Resolver a variável `vcf_file` fora do bloco condicional
-    # Nao podemos usar a variavel `vcf_file` dentro do bloco condicional
+    # We can not use the input `vcf_file` direct in the conditional block
     vcf_file="~{vcf_file}"
 
-    # Obter a extensão do arquivo para verificar se é um arquivo de lista ou um VCF simples
+    # Get the file extension to check if it is a list file or a simple VCF
     file_extension="${vcf_file##*.}"
 
     # option 1: User add on VCF or TSV file in the vcf_file input
@@ -359,47 +350,45 @@ task pipeline_task {
       # cmd="pharmcat_pipeline wf/data/$(basename ~{vcf_file}) $arg"
       # echo "Running command: $cmd" >> $log_file
       # eval $cmd
-
       echo "Processing list of VCF files as a single block from: ~{vcf_file}" >> $log_file
 
       if [[ "$file_extension" == "txt" || "$file_extension" == "tsv" ]]; then
         echo "Treatment pathway from : $vcf_file" >> $log_file
 
-        # Copiar o arquivo de lista para a pasta interna 'wf/data'
+        # Copy the list file to the internal folder 'wf/data'
         cp "$vcf_file" wf/data
         list_file="wf/data/$(basename "$vcf_file")"
 
-        # Criar um novo arquivo de lista com o caminho completo 'wf/data/'
+        # Create a new list file with the full path 'wf/data/'
         adjusted_list="wf/data/adjusted_list.txt"
         touch $adjusted_list
 
-        # Verificar cada linha no arquivo original e adicionar 'wf/data/' caso necessário
+        # Check each line in the original file and add 'wf/data/' if necessary
         while read -r line; do
           if [[ "$line" == wf/data/* ]]; then
-            # Se a linha já contém 'wf/data/', adicionar diretamente
+            # If the line already contains 'wf/data/', add it directly
             echo "$line" >> $adjusted_list
           else
-            # Caso contrário, adicionar o prefixo 'wf/data/'
+            # If the line does not contain 'wf/data/', add the prefix 'wf/data/'
             echo "wf/data/$line" >> $adjusted_list
           fi
         done < "$list_file"
 
         echo "Adjusted VCF list created at: $adjusted_list" >> $log_file
 
-        # Rodar o PharmCAT com a lista ajustada
+        # Run PharmCAT with the adjusted list
         cmd="pharmcat_pipeline $adjusted_list $arg"
         echo "Running command: $cmd" >> $log_file
         eval $cmd
       
       else
-        # Caso seja um arquivo VCF simples, processá-lo diretamente
+        # If it is a single VCF file, process it directly
         echo "Processing single VCF file: $vcf_file" >> $log_file
         cp "$vcf_file" wf/data
         cmd="pharmcat_pipeline wf/data/$(basename "$vcf_file") $arg"
         echo "Running command: $cmd" >> $log_file
         eval $cmd
       fi
-
 
     # Option 2: None VCF or TSV input. Check directory content to process
     elif [[ -z "$vcf_file" ]]; then
@@ -425,10 +414,7 @@ task pipeline_task {
       exit 1
     fi
 
-
-    # Run the command
     echo "Pharmcat_pipeline finished" >> $log_file
-
     # Package the entire 'wf' directory and create a tar.gz file
     tar -czvf pipeline_results.tar.gz wf
   >>>
@@ -456,7 +442,7 @@ task cloud_writer_task {
   command <<<
     set -e -x -o pipefail
 
-    # Extrair o arquivo compactado
+    # Extract the compressed file from a_cloud_reader_task
     tar -xzvf ~{pipeline_results}
 
     # Iniciar arquivo de log
@@ -466,36 +452,32 @@ task cloud_writer_task {
     echo "Start Cloud Writer Task" >> $log_file
     echo "-----------------------" >> $log_file
 
-    # Definir a variável results_directory como string
+    # Define the results_directory variable as a string
     results_directory="~{results_directory}"
 
-    # Verificar se results_directory foi definido e não está vazio
+    # Check if results_directory is defined and not empty
     if [[ -n "$results_directory" ]]; then  
-      # Verificar se gsutil está disponível neste ambiente
+      # Check if gsutil is available
       if ! command -v gsutil &> /dev/null; then
         echo "ERROR: gsutil not found. Please ensure gsutil is available." >> $log_file
         exit 1
       fi
 
-      # Salvar resultados no diretório definido pelo usuário
+      # Save results to the user-defined directory
       echo "Copying results to $results_directory" >> $log_file
 
-      # TODO - Adicionar suporte para outros diretórios em nuvem
+      # TODO - Add support for other cloud directories
       if [[ "$results_directory" == gs://* ]]; then
-        # Copiar arquivos de resultados individuais
+        # Copy all files from the results directory to the cloud directory
         gsutil cp wf/results/* "$results_directory/" >> $log_file
-        # Copiar também o arquivo tar.gz com os resultados do pipeline
-        # gsutil cp ~{pipeline_results} "$results_directory/" >> $log_file
       else
         echo "ERROR: Unsupported storage destination. Only gs:// is supported in this task." >> $log_file
         exit 1
       fi
-
       echo "Cloud Writer Task completed successfully." >> $log_file
     else
       echo "No results directory defined. Skipping cloud write." >> $log_file
     fi
-
   >>>
 
   output {
