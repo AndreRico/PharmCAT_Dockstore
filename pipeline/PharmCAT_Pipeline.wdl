@@ -98,17 +98,18 @@ workflow pharmcat_pipeline {
         max_memory = w__max_memory,
   }
   
-  call cloud_writer_task {
-    input:
-      pipeline_results = pipeline_task.pipeline_results,
-      results_directory = c__results_directory,
+  if (defined(c__results_directory)) {
+    call cloud_writer_task {
+      input:
+        pipeline_results = pipeline_task.pipeline_results,
+        results_directory = c__results_directory
+    }
   }
 
   output {
-    # File results = pipeline_task.results
     File cloud_reader_results = cloud_reader_task.cloud_reader_results
     File pipeline_results = pipeline_task.pipeline_results
-    File log = cloud_writer_task.log
+    # File? log = if (defined(c__results_directory)) then cloud_writer_task.log else "No log file generated"
   }
 }
 
@@ -360,6 +361,7 @@ task pipeline_task {
         list_file="wf/data/$(basename "$vcf_file")"
 
         # Create a new list file with the full path 'wf/data/'
+        # TODO: Change adjust_list to a more descriptive name or by basename
         adjusted_list="wf/data/adjusted_list.txt"
         touch $adjusted_list
 
@@ -481,7 +483,7 @@ task cloud_writer_task {
   >>>
 
   output {
-    File log = "wf/log.txt"
+    # File log = "wf/log.txt"
   }
 
   runtime {
