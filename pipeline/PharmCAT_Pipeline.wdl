@@ -10,7 +10,7 @@ workflow pharmcat_pipeline {
   parameter_meta {
     # Arg to input/output data
     vcf_file: "A VCF file or a list of files name (can be gzipped or bgzipped)."
-    input_directory: "A directory containing VCF files to process."
+    input_directory: "A directory containing files to process."
     results_directory: "The directory to save the results.  Only applicable if you want to save the results in a cloud directory."
     base_filename: "Prefix for output files.  Defaults to the same base name as the input."
     # Args to Sample
@@ -41,7 +41,7 @@ workflow pharmcat_pipeline {
   
   input {
     File? a__input_file  # Simple VCF or TSV file
-    String? b__input_directory  # Read all VCF from a diretory
+    String? b__input_directory  # Read all data from a diretory
     String? c__results_directory  # Write the Results in Cloud Diretory
     String? d__base_filename
     File? e__sample_file
@@ -236,7 +236,7 @@ task pipeline_task {
     log_file="wf/log.txt"
     echo " " >> $log_file
     echo "---------------------------" >> $log_file
-    echo "Start VCF Preprocessor Task" >> $log_file
+    echo "Start PharmCAT-Pipeline Task" >> $log_file
     echo "---------------------------" >> $log_file
 
     # Create list file to keep VCFs to process
@@ -394,11 +394,11 @@ task pipeline_task {
 
     # Option 2: None VCF or TSV input. Check directory content to process
     elif [[ -z "$vcf_file" ]]; then
-      if [[ $(ls wf/data/*.vcf.* 2>/dev/null | wc -l) -gt 0 ]]; then
+      if [[ $(ls wf/data/*.vcf* 2>/dev/null | wc -l) -gt 0 ]]; then
         echo "Processing all individual VCF files in the directory: wf/data/" >> $log_file
 
         VCFs_list="wf/VCFs_list.txt"
-        ls wf/data/*.vcf.* > $VCFs_list
+        ls wf/data/*.vcf* > $VCFs_list
 
         while read -r vcf_file; do
           echo "Processing individual VCF file: $vcf_file" >> $log_file
